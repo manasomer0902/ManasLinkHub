@@ -335,32 +335,25 @@ def admin_required(function):
 
     return decorated
 
+
 # ========================================
 # FRONTEND
 # ========================================
 
+
 @app.route("/", methods=["GET"])
 def home():
-    return send_from_directory(
-        PROJECT_ROOT,
-        "index.html"
-    )
+    return send_from_directory(PROJECT_ROOT, "index.html")
 
 
 @app.route("/style.css", methods=["GET"])
 def style():
-    return send_from_directory(
-        PROJECT_ROOT,
-        "style.css"
-    )
+    return send_from_directory(PROJECT_ROOT, "style.css")
 
 
 @app.route("/script.js", methods=["GET"])
 def script():
-    return send_from_directory(
-        PROJECT_ROOT,
-        "script.js"
-    )
+    return send_from_directory(PROJECT_ROOT, "script.js")
 
 
 # ========================================
@@ -368,12 +361,10 @@ def script():
 # PUBLIC
 # ========================================
 
+
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "online",
-        "service": "Manas Link Hub Analytics"
-    })
+    return jsonify({"status": "online", "service": "Manas Link Hub Analytics"})
 
 
 # ========================================
@@ -2269,6 +2260,12 @@ def database_info():
     )
 
 
+# Initialize database when the app starts
+try:
+    initialize_database()
+    print("Database initialized successfully.")
+except Exception as e:
+    print(f"Database initialization error: {e}")
 # ========================================
 
 # START SERVER
