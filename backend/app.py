@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, session
+from flask import Flask, request, jsonify, redirect, session, send_from_directory
 
 from flask_cors import CORS
 
@@ -35,15 +35,11 @@ from email.message import EmailMessage
 app = Flask(__name__)
 
 ALLOWED_ORIGINS = os.environ.get(
-
     "MANAS_ALLOWED_ORIGINS", "http://127.0.0.1:5000,http://localhost:5000"
-
 ).split(",")
 
 CORS(
-
     app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS}}, supports_credentials=True
-
 )
 
 # IMPORTANT:
@@ -57,16 +53,13 @@ if not app.secret_key:
     raise RuntimeError("MANAS_SECRET_KEY environment variable is not set.")
 
 app.config.update(
-
     SESSION_COOKIE_HTTPONLY=True,
-
     SESSION_COOKIE_SAMESITE="Lax",
-
     SESSION_COOKIE_SECURE=os.environ.get("MANAS_PRODUCTION", "0") == "1",
-
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
 DATABASE = os.path.join(BASE_DIR, "analytics.db")
 
@@ -102,8 +95,8 @@ PASSWORD_FILE = os.path.join(BASE_DIR, "admin_password.hash")
 
 # ========================================
 
-def get_current_password_hash():
 
+def get_current_password_hash():
     """
 
     Return the password hash currently used for admin login.
@@ -134,8 +127,8 @@ def get_current_password_hash():
 
     return ADMIN_PASSWORD_HASH
 
-def save_password_hash(new_password_hash):
 
+def save_password_hash(new_password_hash):
     """
 
     Save the new password hash atomically.
@@ -150,6 +143,7 @@ def save_password_hash(new_password_hash):
 
     os.replace(temporary_file, PASSWORD_FILE)
 
+
 # Email OTP configuration
 
 OTP_EXPIRY_SECONDS = 10 * 60
@@ -162,21 +156,20 @@ OTP_MAX_ATTEMPTS = 5
 
 # ========================================
 
+
 def generate_otp():
 
     return f"{secrets.randbelow(1_000_000):06d}"
 
+
 def otp_digest(otp):
 
     return hmac.new(
-
         app.secret_key.encode("utf-8"),
-
         otp.encode("utf-8"),
-
         hashlib.sha256,
-
     ).hexdigest()
+
 
 def send_otp_email(otp):
 
@@ -214,12 +207,14 @@ Manas Link Hub
 
         smtp.send_message(message)
 
+
 # ========================================
 
 # DATABASE CONNECTION
 # ========================================
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 
 class DatabaseConnection:
 
@@ -256,12 +251,15 @@ class DatabaseConnection:
     def close(self):
         self.connection.close()
 
+
 def get_db():
     return DatabaseConnection()
+
 
 # ========================================
 # DATABASE INITIALIZATION
 # ========================================
+
 
 def initialize_database():
     connection = get_db()
@@ -318,14 +316,15 @@ def initialize_database():
     connection.commit()
     connection.close()
 
+
 # AUTHENTICATION HELPER
 
 # ========================================
 
+
 def admin_required(function):
 
     @wraps(function)
-
     def decorated(*args, **kwargs):
 
         if not session.get("admin_logged_in"):
@@ -337,18 +336,45 @@ def admin_required(function):
     return decorated
 
 # ========================================
-
-# HEALTH CHECK
-
-# PUBLIC
-
+# FRONTEND
 # ========================================
 
 @app.route("/", methods=["GET"])
-
 def home():
+    return send_from_directory(
+        PROJECT_ROOT,
+        "index.html"
+    )
 
-    return jsonify({"status": "online", "service": "Manas Link Hub Analytics"})
+
+@app.route("/style.css", methods=["GET"])
+def style():
+    return send_from_directory(
+        PROJECT_ROOT,
+        "style.css"
+    )
+
+
+@app.route("/script.js", methods=["GET"])
+def script():
+    return send_from_directory(
+        PROJECT_ROOT,
+        "script.js"
+    )
+
+
+# ========================================
+# HEALTH CHECK
+# PUBLIC
+# ========================================
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "online",
+        "service": "Manas Link Hub Analytics"
+    })
+
 
 # ========================================
 
@@ -356,8 +382,8 @@ def home():
 
 # ========================================
 
-@app.route("/admin/login", methods=["GET"])
 
+@app.route("/admin/login", methods=["GET"])
 def login_page():
 
     return """
@@ -882,14 +908,15 @@ def login_page():
 
     """
 
+
 # ========================================
 
 # LOGIN
 
 # ========================================
 
-@app.route("/admin/login", methods=["POST"])
 
+@app.route("/admin/login", methods=["POST"])
 def login():
 
     username = request.form.get("username", "").strip()
@@ -901,7 +928,6 @@ def login():
     if not current_password_hash:
 
         return (
-
             """
 
         <h2>
@@ -919,9 +945,7 @@ def login():
         </p>
 
         """,
-
             500,
-
         )
 
     valid_username = username == ADMIN_USERNAME
@@ -945,7 +969,6 @@ def login():
         return redirect("/admin/dashboard")
 
     return (
-
         """
 
     <h2>
@@ -967,16 +990,16 @@ def login():
     </p>
 
     """,
-
         401,
-
     )
+
 
 # ========================================
 
 # FORGOT PASSWORD - EMAIL OTP
 
 # ========================================
+
 
 def forgot_password_page(message="", otp_stage=False):
 
@@ -1364,6 +1387,7 @@ def forgot_password_page(message="", otp_stage=False):
 
     """
 
+
 def create_reset_otp(username):
 
     otp = generate_otp()
@@ -1375,7 +1399,6 @@ def create_reset_otp(username):
     connection = get_db()
 
     connection.execute(
-
         """
 
         UPDATE password_reset_otps
@@ -1387,13 +1410,10 @@ def create_reset_otp(username):
           AND used = 0
 
         """,
-
         (username,),
-
     )
 
     connection.execute(
-
         """
 
         INSERT INTO password_reset_otps (
@@ -1415,19 +1435,12 @@ def create_reset_otp(username):
         VALUES (?, ?, ?, ?, 0, 0)
 
         """,
-
         (
-
             username,
-
             otp_digest(otp),
-
             now.isoformat(),
-
             expires.isoformat(),
-
         ),
-
     )
 
     connection.commit()
@@ -1436,12 +1449,12 @@ def create_reset_otp(username):
 
     return otp
 
+
 def get_active_reset_otp(username):
 
     connection = get_db()
 
     row = connection.execute(
-
         """
 
         SELECT *
@@ -1457,25 +1470,21 @@ def get_active_reset_otp(username):
         LIMIT 1
 
         """,
-
         (username,),
-
     ).fetchone()
 
     connection.close()
 
     return row
 
-@app.route("/admin/forgot-password", methods=["GET", "POST"])
 
+@app.route("/admin/forgot-password", methods=["GET", "POST"])
 def forgot_password():
 
     if request.method == "GET":
 
         return forgot_password_page(
-
             otp_stage=bool(session.get("password_reset_pending"))
-
         )
 
     action = request.form.get("action", "send_otp")
@@ -1493,29 +1502,18 @@ def forgot_password():
             email = ADMIN_EMAIL.lower() if ADMIN_EMAIL else ""
 
         if (
-
             username != ADMIN_USERNAME
-
             or not ADMIN_EMAIL
-
             or not EMAIL_APP_PASSWORD
-
             or email != ADMIN_EMAIL.lower()
-
         ):
 
             return (
-
                 forgot_password_page(
-
                     "Invalid reset details.",
-
                     otp_stage=False,
-
                 ),
-
                 400,
-
             )
 
         existing = get_active_reset_otp(username)
@@ -1535,17 +1533,11 @@ def forgot_password():
                     session["password_reset_username"] = username
 
                     return (
-
                         forgot_password_page(
-
                             "Please wait about 60 seconds before requesting another OTP.",
-
                             otp_stage=True,
-
                         ),
-
                         429,
-
                     )
 
             except (ValueError, TypeError):
@@ -1561,17 +1553,11 @@ def forgot_password():
         except Exception:
 
             return (
-
                 forgot_password_page(
-
                     "We could not send the OTP email. Check your email configuration.",
-
                     otp_stage=False,
-
                 ),
-
                 500,
-
             )
 
         session["password_reset_pending"] = True
@@ -1579,11 +1565,8 @@ def forgot_password():
         session["password_reset_username"] = username
 
         return forgot_password_page(
-
             "OTP sent successfully. Check your administrator email.",
-
             otp_stage=True,
-
         )
 
     if action == "verify_otp":
@@ -1593,17 +1576,11 @@ def forgot_password():
         if not session.get("password_reset_pending") or username != ADMIN_USERNAME:
 
             return (
-
                 forgot_password_page(
-
                     "Your reset session has expired. Start again.",
-
                     otp_stage=False,
-
                 ),
-
                 400,
-
             )
 
         otp = request.form.get("otp", "").strip()
@@ -1613,33 +1590,21 @@ def forgot_password():
         if not otp.isdigit() or len(otp) != 6:
 
             return (
-
                 forgot_password_page(
-
                     "Enter the 6-digit OTP from your email.",
-
                     otp_stage=True,
-
                 ),
-
                 400,
-
             )
 
         if len(new_password) < 8:
 
             return (
-
                 forgot_password_page(
-
                     "Password must contain at least 8 characters.",
-
                     otp_stage=True,
-
                 ),
-
                 400,
-
             )
 
         row = get_active_reset_otp(username)
@@ -1651,31 +1616,21 @@ def forgot_password():
             session.pop("password_reset_username", None)
 
             return (
-
-                forgot_password_page("This OTP is no longer valid. Request a new OTP.",
-
+                forgot_password_page(
+                    "This OTP is no longer valid. Request a new OTP.",
                     otp_stage=False,
-
                 ),
-
                 400,
-
             )
 
         if row["attempts"] >= OTP_MAX_ATTEMPTS:
 
             return (
-
                 forgot_password_page(
-
                     "Too many incorrect attempts. Request a new OTP.",
-
                     otp_stage=False,
-
                 ),
-
                 429,
-
             )
 
         try:
@@ -1687,7 +1642,6 @@ def forgot_password():
                 connection = get_db()
 
                 connection.execute(
-
                     """
 
                     UPDATE password_reset_otps
@@ -1697,9 +1651,7 @@ def forgot_password():
                     WHERE id = ?
 
                     """,
-
                     (row["id"],),
-
                 )
 
                 connection.commit()
@@ -1711,33 +1663,21 @@ def forgot_password():
                 session.pop("password_reset_username", None)
 
                 return (
-
                     forgot_password_page(
-
                         "This OTP has expired. Request a new OTP.",
-
                         otp_stage=False,
-
                     ),
-
                     400,
-
                 )
 
         except (ValueError, TypeError):
 
             return (
-
                 forgot_password_page(
-
                     "Invalid OTP session. Request a new OTP.",
-
                     otp_stage=False,
-
                 ),
-
                 400,
-
             )
 
         valid_otp = secrets.compare_digest(otp_digest(otp), row["otp_digest"])
@@ -1747,7 +1687,6 @@ def forgot_password():
             connection = get_db()
 
             connection.execute(
-
                 """
 
                 UPDATE password_reset_otps
@@ -1757,9 +1696,7 @@ def forgot_password():
                 WHERE id = ?
 
                 """,
-
                 (row["id"],),
-
             )
 
             connection.commit()
@@ -1767,17 +1704,11 @@ def forgot_password():
             connection.close()
 
             return (
-
                 forgot_password_page(
-
                     "Incorrect OTP. Check your email and try again.",
-
                     otp_stage=True,
-
                 ),
-
                 400,
-
             )
 
         try:
@@ -1787,7 +1718,6 @@ def forgot_password():
             connection = get_db()
 
             connection.execute(
-
                 """
 
                 UPDATE password_reset_otps
@@ -1797,9 +1727,7 @@ def forgot_password():
                 WHERE id = ?
 
                 """,
-
                 (row["id"],),
-
             )
 
             connection.commit()
@@ -1809,17 +1737,11 @@ def forgot_password():
         except OSError:
 
             return (
-
                 forgot_password_page(
-
                     "Password reset failed. The server could not save the new password.",
-
                     otp_stage=True,
-
                 ),
-
                 500,
-
             )
 
         session.clear()
@@ -2000,19 +1922,21 @@ def forgot_password():
 
     return forgot_password_page(), 400
 
+
 # ========================================
 
 # LOGOUT
 
 # ========================================
 
-@app.route("/admin/logout", methods=["GET"])
 
+@app.route("/admin/logout", methods=["GET"])
 def logout():
 
     session.clear()
 
     return redirect("/admin/login")
+
 
 # ========================================
 
@@ -2022,8 +1946,8 @@ def logout():
 
 # ========================================
 
-@app.route("/admin/dashboard", methods=["GET"])
 
+@app.route("/admin/dashboard", methods=["GET"])
 def admin_dashboard():
 
     if not session.get("admin_logged_in"):
@@ -2035,7 +1959,6 @@ def admin_dashboard():
     if not os.path.exists(dashboard_path):
 
         return (
-
             """
 
         <h2>
@@ -2045,14 +1968,13 @@ def admin_dashboard():
         </h2>
 
         """,
-
             404,
-
         )
 
     with open(dashboard_path, "r", encoding="utf-8") as file:
 
         return file.read()
+
 
 # ========================================
 
@@ -2062,8 +1984,8 @@ def admin_dashboard():
 
 # ========================================
 
-@app.route("/api/event", methods=["POST"])
 
+@app.route("/api/event", methods=["POST"])
 def record_event():
 
     data = request.get_json(silent=True)
@@ -2087,7 +2009,6 @@ def record_event():
     connection = get_db()
 
     connection.execute(
-
         """
 
         INSERT INTO events (
@@ -2111,9 +2032,7 @@ def record_event():
         VALUES (?, ?, ?, ?, ?, ?)
 
         """,
-
         (event_type, link_name, timestamp, user_agent, referrer, ip_address),
-
     )
 
     connection.commit()
@@ -2121,6 +2040,7 @@ def record_event():
     connection.close()
 
     return jsonify({"success": True})
+
 
 # ========================================
 
@@ -2130,10 +2050,9 @@ def record_event():
 
 # ========================================
 
+
 @app.route("/api/analytics", methods=["GET"])
-
 @admin_required
-
 def analytics():
 
     connection = get_db()
@@ -2185,18 +2104,13 @@ def analytics():
     connection.close()
 
     return jsonify(
-
         {
-
             "total_events": total_events,
-
             "total_clicks": total_clicks,
-
             "link_clicks": [dict(row) for row in link_clicks],
-
         }
-
     )
+
 
 # ========================================
 
@@ -2206,10 +2120,9 @@ def analytics():
 
 # ========================================
 
+
 @app.route("/api/recent", methods=["GET"])
-
 @admin_required
-
 def recent_activity():
 
     connection = get_db()
@@ -2260,6 +2173,7 @@ def recent_activity():
 
     return jsonify({"events": [dict(event) for event in events]})
 
+
 # ========================================
 
 # ALL EVENTS
@@ -2268,10 +2182,9 @@ def recent_activity():
 
 # ========================================
 
+
 @app.route("/api/events", methods=["GET"])
-
 @admin_required
-
 def all_events():
 
     connection = get_db()
@@ -2322,6 +2235,7 @@ def all_events():
 
     return jsonify({"events": [dict(event) for event in events]})
 
+
 # ========================================
 
 # DATABASE INFORMATION
@@ -2330,10 +2244,9 @@ def all_events():
 
 # ========================================
 
+
 @app.route("/api/database", methods=["GET"])
-
 @admin_required
-
 def database_info():
 
     connection = get_db()
@@ -2348,10 +2261,13 @@ def database_info():
 
     connection.close()
 
-    return jsonify({
-        "database": "PostgreSQL" if DATABASE_URL else DATABASE,
-        "total_records": total_records,
-    })
+    return jsonify(
+        {
+            "database": "PostgreSQL" if DATABASE_URL else DATABASE,
+            "total_records": total_records,
+        }
+    )
+
 
 # ========================================
 
@@ -2372,9 +2288,7 @@ if __name__ == "__main__":
     print(f" Database: {'PostgreSQL' if DATABASE_URL else DATABASE}")
 
     email_status = (
-
         "configured" if ADMIN_EMAIL and EMAIL_APP_PASSWORD else "NOT configured"
-
     )
 
     print(f" Email OTP: {email_status}")
