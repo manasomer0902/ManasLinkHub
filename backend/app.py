@@ -90,6 +90,11 @@ def save_password_hash(new_password_hash):
     connection.close()
 
 
+# Email OTP configuration
+OTP_EXPIRY_SECONDS = 10 * 60
+OTP_MAX_ATTEMPTS = 5
+
+
 # ========================================
 # PASSWORD RESET OTP HELPERS
 # ========================================
@@ -184,6 +189,34 @@ def get_db():
 def initialize_database():
     connection = get_db()
 
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS admin_credentials (
+            username TEXT PRIMARY KEY,
+            password_hash TEXT NOT NULL
+        )
+    """)
+
+    existing_admin = connection.execute(
+        """
+        SELECT username
+        FROM admin_credentials
+        WHERE username = ?
+        """,
+        (ADMIN_USERNAME,),
+    ).fetchone()
+
+    if not existing_admin and ADMIN_PASSWORD_HASH:
+        connection.execute(
+            """
+            INSERT INTO admin_credentials (
+                username,
+                password_hash
+            )
+            VALUES (?, ?)
+            """,
+            (ADMIN_USERNAME, ADMIN_PASSWORD_HASH),
+        )
+
     if connection.is_postgres:
         connection.execute("""
             CREATE TABLE IF NOT EXISTS events (
@@ -260,6 +293,9 @@ def initialize_database():
 
     connection.commit()
     connection.close()
+
+
+initialize_database()
 
 
 # AUTHENTICATION HELPER
