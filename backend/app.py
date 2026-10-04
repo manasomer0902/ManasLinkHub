@@ -469,6 +469,11 @@ def home():
     return send_from_directory(PROJECT_DIR, "index.html")
 
 
+@app.route("/profile.png", methods=["GET"])
+def profile_image():
+    return send_from_directory(PROJECT_DIR, "profile.png")
+
+
 @app.route("/style.css")
 def style_css():
     return send_from_directory(PROJECT_DIR, "style.css")
