@@ -1541,7 +1541,11 @@ def forgot_password():
 
             send_otp_email(otp)
 
-        except Exception:
+        except Exception as exc:
+            import traceback
+
+            print("OTP EMAIL ERROR:", repr(exc))
+            traceback.print_exc()
 
             return (
                 forgot_password_page(
