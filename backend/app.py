@@ -64,7 +64,7 @@ app.config.update(
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
+PROJECT_DIR = os.path.dirname(BASE_DIR)
 
 DATABASE = os.path.join(BASE_DIR, "analytics.db")
 
@@ -466,8 +466,17 @@ def admin_required(function):
 
 @app.route("/", methods=["GET"])
 def home():
+    return send_from_directory(PROJECT_DIR, "index.html")
 
-    return send_from_directory(BASE_DIR, "index.html")
+
+@app.route("/style.css")
+def style_css():
+    return send_from_directory(PROJECT_DIR, "style.css")
+
+
+@app.route("/script.js")
+def script_js():
+    return send_from_directory(PROJECT_DIR, "script.js")
 
 
 # ========================================
