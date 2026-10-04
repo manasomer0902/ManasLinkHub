@@ -5,8 +5,7 @@
 // ========================================
 
 const ANALYTICS_API =
-    "http://127.0.0.1:5000/api/event";
-
+    "https://manaslinkhub.onrender.com/api/event";
 
 document.addEventListener("DOMContentLoaded", () => {
 
