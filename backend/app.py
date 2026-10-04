@@ -49,53 +49,45 @@ DATABASE = os.path.join(BASE_DIR, "analytics.db")
 ADMIN_USERNAME = os.environ.get("MANAS_ADMIN_USERNAME", "manas")
 ADMIN_PASSWORD_HASH = os.environ.get("MANAS_ADMIN_PASSWORD_HASH")
 ADMIN_EMAIL = os.environ.get("MANAS_EMAIL_ADDRESS")
-# Local password storage.
-#
-# The environment variable is used as the initial password.
-# After a successful password reset, the new hash is stored
-# in this local file so it survives Flask restarts.
-PASSWORD_FILE = os.path.join(BASE_DIR, "admin_password.hash")
 
 
 # ========================================
 # PASSWORD STORAGE HELPERS
 # ========================================
 def get_current_password_hash():
-    """
+    connection = get_db()
 
-    Return the password hash currently used for admin login.
+    row = connection.execute(
+        """
+        SELECT password_hash
+        FROM admin_credentials
+        WHERE username = ?
+        """,
+        (ADMIN_USERNAME,),
+    ).fetchone()
 
-    A locally saved reset password takes priority over the
+    connection.close()
 
-    environment variable so password changes survive restarts.
+    if row and row["password_hash"]:
+        return row["password_hash"]
 
-    """
-    if os.path.exists(PASSWORD_FILE):
-        try:
-            with open(PASSWORD_FILE, "r", encoding="utf-8") as file:
-                saved_hash = file.read().strip()
-            if saved_hash:
-                return saved_hash
-        except OSError:
-            pass
     return ADMIN_PASSWORD_HASH
 
 
 def save_password_hash(new_password_hash):
-    """
+    connection = get_db()
 
-    Save the new password hash atomically.
+    connection.execute(
+        """
+        UPDATE admin_credentials
+        SET password_hash = ?
+        WHERE username = ?
+        """,
+        (new_password_hash, ADMIN_USERNAME),
+    )
 
-    """
-    temporary_file = PASSWORD_FILE + ".tmp"
-    with open(temporary_file, "w", encoding="utf-8") as file:
-        file.write(new_password_hash)
-    os.replace(temporary_file, PASSWORD_FILE)
-
-
-# Email OTP configuration
-OTP_EXPIRY_SECONDS = 10 * 60
-OTP_MAX_ATTEMPTS = 5
+    connection.commit()
+    connection.close()
 
 
 # ========================================
@@ -191,92 +183,81 @@ def get_db():
 # ========================================
 def initialize_database():
     connection = get_db()
+
     if connection.is_postgres:
         connection.execute("""
-
             CREATE TABLE IF NOT EXISTS events (
-
                 id SERIAL PRIMARY KEY,
-
                 event_type TEXT NOT NULL,
-
                 link_name TEXT,
-
                 timestamp TEXT NOT NULL,
-
                 user_agent TEXT,
-
                 referrer TEXT,
-
                 ip_address TEXT
-
             )
+            """)
 
-        """)
         connection.execute("""
-
             CREATE TABLE IF NOT EXISTS password_reset_otps (
-
                 id SERIAL PRIMARY KEY,
-
                 username TEXT NOT NULL,
-
                 otp_digest TEXT NOT NULL,
-
                 created_at TEXT NOT NULL,
-
                 expires_at TEXT NOT NULL,
-
                 attempts INTEGER NOT NULL DEFAULT 0,
-
                 used INTEGER NOT NULL DEFAULT 0
-
             )
+            """)
 
-        """)
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS admin_credentials (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL
+            )
+            """)
+
     else:
         connection.execute("""
-
             CREATE TABLE IF NOT EXISTS events (
-
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-
                 event_type TEXT NOT NULL,
-
                 link_name TEXT,
-
                 timestamp TEXT NOT NULL,
-
                 user_agent TEXT,
-
                 referrer TEXT,
-
                 ip_address TEXT
-
             )
+            """)
 
-        """)
         connection.execute("""
-
             CREATE TABLE IF NOT EXISTS password_reset_otps (
-
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-
                 username TEXT NOT NULL,
-
                 otp_digest TEXT NOT NULL,
-
                 created_at TEXT NOT NULL,
-
                 expires_at TEXT NOT NULL,
-
                 attempts INTEGER NOT NULL DEFAULT 0,
-
                 used INTEGER NOT NULL DEFAULT 0
-
             )
+            """)
 
-        """)
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS admin_credentials (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL
+            )
+            """)
+
+    if ADMIN_PASSWORD_HASH:
+        connection.execute(
+            """
+            INSERT INTO admin_credentials (username, password_hash)
+            VALUES (?, ?)
+            ON CONFLICT (username) DO NOTHING
+            """,
+            (ADMIN_USERNAME, ADMIN_PASSWORD_HASH),
+        )
+
     connection.commit()
     connection.close()
 
