@@ -57,7 +57,6 @@
             -webkit-font-smoothing: antialiased;
         }
 
-
         /* ==============================
            CONTAINER
         =============================== */
@@ -69,7 +68,6 @@
 
             padding: 55px 0 40px;
         }
-
 
         /* ==============================
            HEADER
@@ -101,7 +99,6 @@
             font-size: 13px;
         }
 
-
         .header-right {
             display: flex;
 
@@ -109,7 +106,6 @@
 
             gap: 10px;
         }
-
 
         /* ==============================
            STATUS
@@ -148,7 +144,6 @@
                 0 0 10px
                 rgba(105, 211, 156, 0.7);
         }
-
 
         /* ==============================
            LOGOUT BUTTON
@@ -193,7 +188,6 @@
 
             transform: translateY(-1px);
         }
-
 
         /* ==============================
            STAT CARDS
@@ -243,7 +237,6 @@
             letter-spacing: -1px;
         }
 
-
         /* ==============================
            SECTION
         =============================== */
@@ -265,7 +258,6 @@
 
             text-transform: uppercase;
         }
-
 
         /* ==============================
            LINK PERFORMANCE
@@ -346,7 +338,6 @@
             transition:
                 width 0.5s ease;
         }
-
 
         /* ==============================
            ACTIVITY
@@ -436,7 +427,6 @@
             white-space: nowrap;
         }
 
-
         /* ==============================
            ACTIONS
         =============================== */
@@ -486,7 +476,6 @@
             transform: translateY(-1px);
         }
 
-
         /* ==============================
            EMPTY / ERROR
         =============================== */
@@ -504,7 +493,6 @@
         .error {
             color: var(--red);
         }
-
 
         /* ==============================
            FOOTER
@@ -525,7 +513,6 @@
 
             font-size: 10px;
         }
-
 
         /* ==============================
            MOBILE
@@ -583,11 +570,9 @@
 
 </head>
 
-
 <body>
 
     <main class="container">
-
 
         <!-- ==============================
              HEADER
@@ -607,7 +592,6 @@
 
             </div>
 
-
             <div class="header-right">
 
                 <div class="status">
@@ -617,7 +601,6 @@
                     Analytics Online
 
                 </div>
-
 
                 <a
                     class="logout-button"
@@ -630,13 +613,11 @@
 
         </header>
 
-
         <!-- ==============================
              STATS
         =============================== -->
 
         <section class="stats">
-
 
             <div class="stat-card">
 
@@ -653,7 +634,6 @@
 
             </div>
 
-
             <div class="stat-card">
 
                 <div class="stat-label">
@@ -668,7 +648,6 @@
                 </div>
 
             </div>
-
 
             <div class="stat-card">
 
@@ -685,9 +664,7 @@
 
             </div>
 
-
         </section>
-
 
         <!-- ==============================
              LINK PERFORMANCE
@@ -698,7 +675,6 @@
             <div class="section-title">
                 Link Performance
             </div>
-
 
             <div
                 class="link-list"
@@ -713,7 +689,6 @@
 
         </section>
 
-
         <!-- ==============================
              RECENT ACTIVITY
         =============================== -->
@@ -723,7 +698,6 @@
             <div class="section-title">
                 Recent Activity
             </div>
-
 
             <div
                 class="activity-list"
@@ -738,7 +712,6 @@
 
         </section>
 
-
         <!-- ==============================
              ACTIONS
         =============================== -->
@@ -752,7 +725,6 @@
                 Last updated: —
             </div>
 
-
             <button
                 class="refresh-button"
                 id="refreshButton"
@@ -761,7 +733,6 @@
             </button>
 
         </div>
-
 
         <!-- ==============================
              FOOTER
@@ -773,9 +744,7 @@
 
         </footer>
 
-
     </main>
-
 
     <script>
 
@@ -785,7 +754,6 @@
 
         const API_URL =
             window.location.origin;
-
 
         // ========================================
         // LOAD SUMMARY
@@ -798,7 +766,6 @@
                     `${API_URL}/api/analytics`
                 );
 
-
             if (response.status === 401) {
 
                 window.location.href =
@@ -808,7 +775,6 @@
 
             }
 
-
             if (!response.ok) {
 
                 throw new Error(
@@ -817,11 +783,9 @@
 
             }
 
-
             return await response.json();
 
         }
-
 
         // ========================================
         // LOAD RECENT ACTIVITY
@@ -834,7 +798,6 @@
                     `${API_URL}/api/recent`
                 );
 
-
             if (response.status === 401) {
 
                 window.location.href =
@@ -844,7 +807,6 @@
 
             }
 
-
             if (!response.ok) {
 
                 throw new Error(
@@ -853,11 +815,9 @@
 
             }
 
-
             return await response.json();
 
         }
-
 
         // ========================================
         // LOAD EVERYTHING
@@ -878,31 +838,25 @@
 
                 ]);
 
-
                 if (!summary || !recent) {
 
                     return;
 
                 }
 
-
                 updateSummary(
                     summary
                 );
-
 
                 renderLinks(
                     summary.link_clicks
                 );
 
-
                 renderRecentActivity(
                     recent.events
                 );
 
-
                 updateLastUpdated();
-
 
             } catch (error) {
 
@@ -911,13 +865,11 @@
                     error
                 );
 
-
                 showError();
 
             }
 
         }
-
 
         // ========================================
         // UPDATE SUMMARY
@@ -932,12 +884,10 @@
             ).textContent =
                 data.total_events;
 
-
             document.getElementById(
                 "totalClicks"
             ).textContent =
                 data.total_clicks;
-
 
             document.getElementById(
                 "linksTracked"
@@ -945,7 +895,6 @@
                 data.link_clicks.length;
 
         }
-
 
         // ========================================
         // RENDER LINK PERFORMANCE
@@ -959,7 +908,6 @@
                 document.getElementById(
                     "linkList"
                 );
-
 
             if (!links.length) {
 
@@ -975,7 +923,6 @@
 
             }
 
-
             const highest =
                 Math.max(
                     ...links.map(
@@ -983,7 +930,6 @@
                             item.clicks
                     )
                 );
-
 
             container.innerHTML =
                 links.map(
@@ -996,7 +942,6 @@
                                     highest
                                 ) * 100
                                 : 0;
-
 
                         return `
 
@@ -1012,7 +957,6 @@
                                         )}
                                     </span>
 
-
                                     <span
                                         class="link-count"
                                     >
@@ -1025,7 +969,6 @@
                                     </span>
 
                                 </div>
-
 
                                 <div class="bar">
 
@@ -1048,7 +991,6 @@
 
         }
 
-
         // ========================================
         // RENDER RECENT ACTIVITY
         // ========================================
@@ -1061,7 +1003,6 @@
                 document.getElementById(
                     "activityList"
                 );
-
 
             if (!events.length) {
 
@@ -1077,7 +1018,6 @@
 
             }
 
-
             container.innerHTML =
                 events.map(
                     event => {
@@ -1087,14 +1027,12 @@
                                 event.timestamp
                             );
 
-
                         const referrer =
                             event.referrer
                                 ? formatReferrer(
                                     event.referrer
                                 )
                                 : "Direct";
-
 
                         return `
 
@@ -1110,7 +1048,6 @@
                                         )}
                                     </div>
 
-
                                     <div
                                         class="activity-meta"
                                     >
@@ -1121,7 +1058,6 @@
                                             ${event.event_type}
                                         </span>
 
-
                                         <span>
                                             ${referrer}
                                         </span>
@@ -1129,7 +1065,6 @@
                                     </div>
 
                                 </div>
-
 
                                 <div
                                     class="activity-time"
@@ -1146,7 +1081,6 @@
 
         }
 
-
         // ========================================
         // FORMAT LINK NAME
         // ========================================
@@ -1161,14 +1095,12 @@
 
             }
 
-
             return name
                 .charAt(0)
                 .toUpperCase()
                 + name.slice(1);
 
         }
-
 
         // ========================================
         // FORMAT REFERRER
@@ -1183,7 +1115,6 @@
                 const url =
                     new URL(referrer);
 
-
                 return url.hostname;
 
             } catch {
@@ -1193,7 +1124,6 @@
             }
 
         }
-
 
         // ========================================
         // FORMAT DATE
@@ -1209,10 +1139,8 @@
 
             }
 
-
             const date =
                 new Date(timestamp);
-
 
             return date.toLocaleString(
                 undefined,
@@ -1224,7 +1152,6 @@
 
         }
 
-
         // ========================================
         // LAST UPDATED
         // ========================================
@@ -1234,7 +1161,6 @@
             const now =
                 new Date();
 
-
             document.getElementById(
                 "lastUpdated"
             ).textContent =
@@ -1243,7 +1169,6 @@
                 }`;
 
         }
-
 
         // ========================================
         // ERROR STATE
@@ -1268,7 +1193,6 @@
 
             `;
 
-
             document.getElementById(
                 "activityList"
             ).innerHTML = `
@@ -1283,7 +1207,6 @@
 
         }
 
-
         // ========================================
         // REFRESH BUTTON
         // ========================================
@@ -1294,7 +1217,6 @@
             "click",
             loadDashboard
         );
-
 
         // ========================================
         // INITIAL LOAD
