@@ -1,38 +1,23 @@
-from flask import Flask, request, jsonify, redirect, session
-
-
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    redirect,
+    session,
+    url_for,
+    send_from_directory,
+)
 from flask_cors import CORS
-
-
 from werkzeug.security import generate_password_hash, check_password_hash
-
-
 from datetime import datetime, timezone
-
-
 from functools import wraps
-
-
 import sqlite3
-
-
 import os
-
-
 import secrets
-
-
 import hashlib
-
-
 import hmac
-
-
 import psycopg2
-
-
 import requests
-
 from psycopg2.extras import RealDictCursor
 
 # ========================================
@@ -482,7 +467,7 @@ def admin_required(function):
 @app.route("/", methods=["GET"])
 def home():
 
-    return jsonify({"status": "online", "service": "Manas Link Hub Analytics"})
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 # ========================================
