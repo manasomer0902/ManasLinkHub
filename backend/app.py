@@ -10,6 +10,8 @@ from flask import (
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+
 from functools import wraps
 import sqlite3
 import os
@@ -20,6 +22,7 @@ import psycopg2
 import requests
 from psycopg2.extras import RealDictCursor
 
+load_dotenv()
 # ========================================
 # APP CONFIGURATION
 # ========================================
@@ -1480,49 +1483,112 @@ def record_event():
 # ANALYTICS SUMMARY
 # PROTECTED
 # ========================================
+
+
 @app.route("/api/analytics", methods=["GET"])
 @admin_required
 def analytics():
+
     connection = get_db()
+
+    # ----------------------------------------
+    # TOTAL EVENTS
+    # ----------------------------------------
+
     total_events = connection.execute("""
-
         SELECT COUNT(*) AS count
-
         FROM events
-
         """).fetchone()["count"]
+
+    # ----------------------------------------
+    # TOTAL VISITS
+    # ----------------------------------------
+
+    total_visits = connection.execute("""
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE event_type = 'visit'
+        """).fetchone()["count"]
+
+    # ----------------------------------------
+    # TOTAL CLICKS
+    # ----------------------------------------
+
     total_clicks = connection.execute("""
-
         SELECT COUNT(*) AS count
-
         FROM events
-
         WHERE event_type = 'click'
-
         """).fetchone()["count"]
+
+    # ----------------------------------------
+    # LINK CLICK BREAKDOWN
+    # ----------------------------------------
+
     link_clicks = connection.execute("""
-
         SELECT
-
             link_name,
-
             COUNT(*) AS clicks
-
         FROM events
-
         WHERE event_type = 'click'
-
+          AND link_name IS NOT NULL
         GROUP BY link_name
-
         ORDER BY clicks DESC
-
         """).fetchall()
+
+    link_clicks = [dict(row) for row in link_clicks]
+
+    # ----------------------------------------
+    # TOP LINK
+    # ----------------------------------------
+
+    if link_clicks:
+
+        top_link = {
+            "link_name": link_clicks[0]["link_name"],
+            "clicks": link_clicks[0]["clicks"],
+        }
+
+    else:
+
+        top_link = None
+
+    # ----------------------------------------
+    # LAST ACTIVITY
+    # ----------------------------------------
+
+    last_activity = connection.execute("""
+        SELECT
+            event_type,
+            link_name,
+            timestamp
+        FROM events
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """).fetchone()
+
+    if last_activity:
+
+        last_activity = dict(last_activity)
+
+    else:
+
+        last_activity = None
+
     connection.close()
+
+    # ----------------------------------------
+    # RESPONSE
+    # ----------------------------------------
+
     return jsonify(
         {
+            "success": True,
             "total_events": total_events,
+            "total_visits": total_visits,
             "total_clicks": total_clicks,
-            "link_clicks": [dict(row) for row in link_clicks],
+            "top_link": top_link,
+            "link_clicks": link_clicks,
+            "last_activity": last_activity,
         }
     )
 

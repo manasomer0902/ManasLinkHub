@@ -4,8 +4,7 @@
 // Local + Python Backend Tracking
 // ========================================
 
-const ANALYTICS_API =
-    "https://manaslinkhub.onrender.com/api/event";
+const ANALYTICS_API = "/api/event";
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -13,6 +12,10 @@ document.addEventListener("DOMContentLoaded", () => {
         "Manas Link Hub Analytics loaded."
     );
 
+    sendEventToBackend(
+        "visit",
+        null
+    );
 
     const trackedLinks =
         document.querySelectorAll("[data-track]");
