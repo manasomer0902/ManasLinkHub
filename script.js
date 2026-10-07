@@ -6,19 +6,337 @@
 
 const ANALYTICS_API = "/api/event";
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener(
+    "DOMContentLoaded",
+    async () => {
 
-    console.log(
-        "Manas Link Hub Analytics loaded."
-    );
+        console.log(
+            "Manas Link Hub Analytics loaded."
+        );
 
-    sendEventToBackend(
-        "visit",
-        null
-    );
+
+        // ----------------------------------------
+        // RECORD PAGE VISIT
+        // ----------------------------------------
+
+        sendEventToBackend(
+            "visit",
+            null
+        );
+
+
+        // ----------------------------------------
+        // LOAD MANAGED PUBLIC LINKS
+        // ----------------------------------------
+
+        await loadPublicLinks();
+
+
+        // ----------------------------------------
+        // TRACK STATIC / FALLBACK LINKS
+        // ----------------------------------------
+
+        bindTrackedLinks();
+
+    }
+);
+
+
+// ========================================
+// LOAD PUBLIC LINKS
+// ========================================
+
+async function loadPublicLinks() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/public-links"
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                `Public links request failed: ${response.status}`
+            );
+
+        }
+
+
+        const result =
+            await response.json();
+
+
+        if (
+            !result.success ||
+            !Array.isArray(result.links)
+        ) {
+
+            throw new Error(
+                "Invalid public links response."
+            );
+
+        }
+
+
+        renderPublicLinks(
+            result.links
+        );
+
+
+        console.log(
+            `Loaded ${result.links.length} managed links.`
+        );
+
+
+    } catch (error) {
+
+        // Keep the original HTML as fallback.
+        console.warn(
+            "Could not load managed links:",
+            error.message
+        );
+
+    }
+
+}
+
+
+// ========================================
+// ESCAPE HTML
+// ========================================
+
+function escapeHtml(value) {
+
+    return String(
+        value ?? ""
+    )
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+// ========================================
+// RENDER PUBLIC LINKS
+// ========================================
+
+function renderPublicLinks(
+    links
+) {
+
+    const featuredSection =
+        document.getElementById(
+            "publicFeaturedSection"
+        );
+
+    const linksSection =
+        document.getElementById(
+            "publicLinksSection"
+        );
+
+
+    if (
+        !featuredSection ||
+        !linksSection
+    ) {
+
+        return;
+
+    }
+
+
+    const featuredLink =
+        links.find(
+            link =>
+                Number(link.featured) === 1
+        );
+
+
+    const normalLinks =
+        links.filter(
+            link =>
+                Number(link.featured) !== 1
+        );
+
+
+    // ----------------------------------------
+    // FEATURED
+    // ----------------------------------------
+
+    if (featuredLink) {
+
+        featuredSection.hidden = false;
+
+        featuredSection.innerHTML = `
+
+            <div class="section-label">
+                <span>
+                    FEATURED PROJECT
+                </span>
+            </div>
+
+
+            <div class="project-card">
+
+                <div class="project-icon">
+                    ${escapeHtml(
+                        featuredLink.icon || "↗"
+                    )}
+                </div>
+
+
+                <div class="project-info">
+
+                    <h2>
+                        ${escapeHtml(
+                            featuredLink.name
+                        )}
+                    </h2>
+
+
+                    <p>
+                        ${escapeHtml(
+                            featuredLink.description ||
+                            "Featured project and link."
+                        )}
+                    </p>
+
+
+                    <a
+                        class="project-button"
+                        href="${escapeHtml(
+                            featuredLink.url
+                        )}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-track="${escapeHtml(
+                            featuredLink.name
+                        )}"
+                    >
+                        View Project →
+                    </a>
+
+                </div>
+
+            </div>
+
+        `;
+
+    } else {
+
+        featuredSection.hidden = true;
+
+    }
+
+
+    // ----------------------------------------
+    // NORMAL LINKS
+    // ----------------------------------------
+
+    linksSection.innerHTML = `
+
+        <div class="section-label">
+            <span>
+                FIND ME
+            </span>
+        </div>
+
+
+        ${
+            normalLinks.length
+                ? normalLinks
+                    .map(
+                        link => `
+                            <a
+                                class="link-card"
+                                href="${escapeHtml(
+                                    link.url
+                                )}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-track="${escapeHtml(
+                                    link.name
+                                )}"
+                            >
+
+                                <span
+                                    class="link-icon"
+                                >
+                                    ${escapeHtml(
+                                        link.icon || "↗"
+                                    )}
+                                </span>
+
+
+                                <span
+                                    class="link-name"
+                                >
+                                    ${escapeHtml(
+                                        link.name
+                                    )}
+                                </span>
+
+
+                                <span
+                                    class="arrow"
+                                >
+                                    ↗
+                                </span>
+
+                            </a>
+                        `
+                    )
+                    .join("")
+                : `
+                    <div
+                        class="link-card"
+                        style="justify-content:center;"
+                    >
+                        No links available.
+                    </div>
+                `
+        }
+
+    `;
+
+
+    // Re-bind analytics after dynamic rendering.
+    bindTrackedLinks();
+
+}
+
+
+// ========================================
+// BIND CLICK TRACKING
+// ========================================
+
+function bindTrackedLinks() {
 
     const trackedLinks =
-        document.querySelectorAll("[data-track]");
+        document.querySelectorAll(
+            "[data-track]"
+        );
 
 
     console.log(
@@ -26,35 +344,53 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
 
-    trackedLinks.forEach((link) => {
+    trackedLinks.forEach(
+        link => {
 
-        link.addEventListener("click", () => {
+            // Prevent duplicate listeners.
+            if (
+                link.dataset.analyticsBound === "1"
+            ) {
 
-            const linkName =
-                link.dataset.track;
+                return;
 
-
-            console.log(
-                `📊 Tracking click: ${linkName}`
-            );
-
-
-            // Save locally
-            saveLocalClick(linkName);
+            }
 
 
-            // Send to Python backend
-            sendEventToBackend(
+            link.dataset.analyticsBound =
+                "1";
+
+
+            link.addEventListener(
                 "click",
-                linkName
+                () => {
+
+                    const linkName =
+                        link.dataset.track;
+
+
+                    console.log(
+                        `📊 Tracking click: ${linkName}`
+                    );
+
+
+                    saveLocalClick(
+                        linkName
+                    );
+
+
+                    sendEventToBackend(
+                        "click",
+                        linkName
+                    );
+
+                }
             );
 
-        });
+        }
+    );
 
-    });
-
-});
-
+}
 
 // ========================================
 // SEND EVENT TO PYTHON BACKEND
@@ -84,8 +420,12 @@ async function sendEventToBackend(
                             eventType,
 
                         link_name:
-                            linkName
+                            linkName,
 
+                        timezone:
+                            Intl.DateTimeFormat()
+                                .resolvedOptions()
+                                .timeZone || null
                     })
                 }
             );
