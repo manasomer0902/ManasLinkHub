@@ -136,6 +136,81 @@ function escapeHtml(value) {
 
 }
 
+// ========================================
+// AUTOMATIC PUBLIC LINK ICON
+// ========================================
+
+function getPublicLinkIcon(url) {
+
+    try {
+
+        const hostname =
+            new URL(url)
+                .hostname
+                .toLowerCase();
+
+        if (
+            hostname.includes("github.com")
+        ) {
+            return "GH";
+        }
+
+        if (
+            hostname.includes("instagram.com")
+        ) {
+            return "IG";
+        }
+
+        if (
+            hostname.includes("linkedin.com")
+        ) {
+            return "in";
+        }
+
+        if (
+            hostname.includes("youtube.com") ||
+            hostname.includes("youtu.be")
+        ) {
+            return "YT";
+        }
+
+        if (
+            hostname === "x.com" ||
+            hostname.includes("twitter.com")
+        ) {
+            return "X";
+        }
+
+        if (
+            hostname.includes("discord.com") ||
+            hostname.includes("discord.gg")
+        ) {
+            return "DC";
+        }
+
+        if (
+            hostname.includes("facebook.com")
+        ) {
+            return "f";
+        }
+
+        if (
+            hostname.includes("t.me") ||
+            hostname.includes("telegram.me") ||
+            hostname.includes("telegram.org")
+        ) {
+            return "TG";
+        }
+
+        return "↗";
+
+    } catch {
+
+        return "↗";
+
+    }
+
+}
 
 // ========================================
 // RENDER PUBLIC LINKS
@@ -201,7 +276,9 @@ function renderPublicLinks(
 
                 <div class="project-icon">
                     ${escapeHtml(
-                        featuredLink.icon || "↗"
+                        getPublicLinkIcon(
+                            featuredLink.url
+                        )
                     )}
                 </div>
 
@@ -284,7 +361,9 @@ function renderPublicLinks(
                                     class="link-icon"
                                 >
                                     ${escapeHtml(
-                                        link.icon || "↗"
+                                        getPublicLinkIcon(
+                                            link.url
+                                        )
                                     )}
                                 </span>
 

@@ -27,6 +27,8 @@ import os
 
 import secrets
 
+import csv
+
 import hashlib
 
 import hmac
@@ -35,7 +37,19 @@ import psycopg2
 
 import requests
 
-from io import BytesIO
+from io import BytesIO, StringIO
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 import qrcode
 
@@ -606,10 +620,7 @@ def initialize_database():
     # PHASE 7 — EVENT COLUMN MIGRATIONS
     # ========================================
 
-    def ensure_event_column(
-        column_name,
-        column_definition
-    ):
+    def ensure_event_column(column_name, column_definition):
 
         if connection.is_postgres:
 
@@ -626,67 +637,39 @@ def initialize_database():
 
             if not existing_column:
 
-                connection.execute(
-                    f"""
+                connection.execute(f"""
                     ALTER TABLE events
                     ADD COLUMN {column_name}
                     {column_definition}
-                    """
-                )
+                    """)
 
         else:
 
-            existing_columns = connection.execute(
-                """
+            existing_columns = connection.execute("""
                 PRAGMA table_info(events)
-                """
-            ).fetchall()
+                """).fetchall()
 
-            column_names = {
-                row["name"]
-                for row in existing_columns
-            }
+            column_names = {row["name"] for row in existing_columns}
 
             if column_name not in column_names:
 
-                connection.execute(
-                    f"""
+                connection.execute(f"""
                     ALTER TABLE events
                     ADD COLUMN {column_name}
                     {column_definition}
-                    """
-                )
+                    """)
 
+    ensure_event_column("timezone", "TEXT")
 
-    ensure_event_column(
-        "timezone",
-        "TEXT"
-    )
+    ensure_event_column("campaign_id", "INTEGER")
 
-    ensure_event_column(
-        "campaign_id",
-        "INTEGER"
-    )
+    ensure_event_column("campaign_name", "TEXT")
 
-    ensure_event_column(
-        "campaign_name",
-        "TEXT"
-    )
+    ensure_event_column("campaign_source", "TEXT")
 
-    ensure_event_column(
-        "campaign_source",
-        "TEXT"
-    )
+    ensure_event_column("campaign_medium", "TEXT")
 
-    ensure_event_column(
-        "campaign_medium",
-        "TEXT"
-    )
-
-    ensure_event_column(
-        "qr_token",
-        "TEXT"
-    )
+    ensure_event_column("qr_token", "TEXT")
 
     if ADMIN_PASSWORD_HASH:
 
@@ -709,8 +692,7 @@ def initialize_database():
 
     if connection.is_postgres:
 
-        connection.execute(
-            """
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS campaigns (
 
                 id SERIAL PRIMARY KEY,
@@ -732,11 +714,9 @@ def initialize_database():
                 updated_at TEXT NOT NULL
 
             )
-            """
-        )
+            """)
 
-        connection.execute(
-            """
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS qr_codes (
 
                 id SERIAL PRIMARY KEY,
@@ -754,13 +734,11 @@ def initialize_database():
                 enabled INTEGER NOT NULL DEFAULT 1
 
             )
-            """
-        )
+            """)
 
     else:
 
-        connection.execute(
-            """
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS campaigns (
 
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -782,11 +760,9 @@ def initialize_database():
                 updated_at TEXT NOT NULL
 
             )
-            """
-        )
+            """)
 
-        connection.execute(
-            """
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS qr_codes (
 
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -804,9 +780,7 @@ def initialize_database():
                 enabled INTEGER NOT NULL DEFAULT 1
 
             )
-            """
-        )
-
+            """)
 
     # ========================================
     # MAIN LINK HUB QR
@@ -822,7 +796,6 @@ def initialize_database():
         """,
         ("Main Link Hub",),
     ).fetchone()
-
 
     if not existing_main_qr:
 
@@ -843,13 +816,10 @@ def initialize_database():
                 "Main Link Hub",
                 None,
                 None,
-                datetime.now(
-                    timezone.utc
-                ).isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 1,
             ),
         )
-
 
     connection.commit()
 
@@ -897,6 +867,14 @@ def profile_image():
 
     return send_from_directory(PROJECT_DIR, "profile.png")
 
+@app.route("/favicon.ico", methods=["GET"])
+def favicon():
+
+    return send_from_directory(
+        PROJECT_DIR,
+        "profile.png",
+        mimetype="image/png"
+    )
 
 @app.route("/style.css")
 def style_css():
@@ -2790,6 +2768,7 @@ def admin_reorder_links():
         }
     )
 
+
 # ========================================
 # PHASE 7 — QR & CAMPAIGN ANALYTICS
 # ========================================
@@ -2797,9 +2776,7 @@ def admin_reorder_links():
 
 def phase7_public_base_url():
 
-    configured_url = os.environ.get(
-        "MANAS_PUBLIC_BASE_URL"
-    )
+    configured_url = os.environ.get("MANAS_PUBLIC_BASE_URL")
 
     if configured_url:
 
@@ -2808,18 +2785,11 @@ def phase7_public_base_url():
     return request.url_root.rstrip("/")
 
 
-def create_qr_record(
-    connection,
-    name,
-    link_id=None,
-    campaign_id=None
-):
+def create_qr_record(connection, name, link_id=None, campaign_id=None):
 
     token = secrets.token_urlsafe(12)
 
-    now = datetime.now(
-        timezone.utc
-    ).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     connection.execute(
         """
@@ -2849,26 +2819,20 @@ def create_qr_record(
 def generate_qr_png(data):
 
     qr = qrcode.QRCode(
-        error_correction=
-            qrcode.constants.ERROR_CORRECT_M,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
         box_size=10,
         border=4,
     )
 
     qr.add_data(data)
 
-    qr.make(
-        fit=True
-    )
+    qr.make(fit=True)
 
     image = qr.make_image()
 
     buffer = BytesIO()
 
-    image.save(
-        buffer,
-        format="PNG"
-    )
+    image.save(buffer, format="PNG")
 
     buffer.seek(0)
 
@@ -2880,10 +2844,7 @@ def generate_qr_png(data):
 # ========================================
 
 
-@app.route(
-    "/api/admin/qr/main",
-    methods=["GET"]
-)
+@app.route("/api/admin/qr/main", methods=["GET"])
 @admin_required
 def admin_main_qr():
 
@@ -2906,13 +2867,9 @@ def admin_main_qr():
         ("Main Link Hub",),
     ).fetchone()
 
-
     if not qr:
 
-        token = create_qr_record(
-            connection,
-            "Main Link Hub"
-        )
+        token = create_qr_record(connection, "Main Link Hub")
 
         connection.commit()
 
@@ -2930,14 +2887,9 @@ def admin_main_qr():
             (token,),
         ).fetchone()
 
-
     connection.close()
 
-    scan_url = (
-        phase7_public_base_url()
-        + "/qr/"
-        + qr["token"]
-    )
+    scan_url = phase7_public_base_url() + "/qr/" + qr["token"]
 
     return jsonify(
         {
@@ -2945,10 +2897,7 @@ def admin_main_qr():
             "qr": {
                 **dict(qr),
                 "scan_url": scan_url,
-                "image_url":
-                    "/api/admin/qr/"
-                    + qr["token"]
-                    + "/image",
+                "image_url": "/api/admin/qr/" + qr["token"] + "/image",
             },
         }
     )
@@ -2959,10 +2908,7 @@ def admin_main_qr():
 # ========================================
 
 
-@app.route(
-    "/api/admin/qr/link/<int:link_id>",
-    methods=["GET"]
-)
+@app.route("/api/admin/qr/link/<int:link_id>", methods=["GET"])
 @admin_required
 def admin_link_qr(link_id):
 
@@ -2981,7 +2927,6 @@ def admin_link_qr(link_id):
         (link_id,),
     ).fetchone()
 
-
     if not link:
 
         connection.close()
@@ -2995,7 +2940,6 @@ def admin_link_qr(link_id):
             ),
             404,
         )
-
 
     qr = connection.execute(
         """
@@ -3012,7 +2956,6 @@ def admin_link_qr(link_id):
         """,
         (link_id,),
     ).fetchone()
-
 
     if not qr:
 
@@ -3038,30 +2981,19 @@ def admin_link_qr(link_id):
             (token,),
         ).fetchone()
 
-
     connection.close()
 
-    scan_url = (
-        phase7_public_base_url()
-        + "/qr/"
-        + qr["token"]
-    )
+    scan_url = phase7_public_base_url() + "/qr/" + qr["token"]
 
     return jsonify(
         {
             "success": True,
             "qr": {
                 **dict(qr),
-                "link_id":
-                    link_id,
-                "link_name":
-                    link["name"],
-                "scan_url":
-                    scan_url,
-                "image_url":
-                    "/api/admin/qr/"
-                    + qr["token"]
-                    + "/image",
+                "link_id": link_id,
+                "link_name": link["name"],
+                "scan_url": scan_url,
+                "image_url": "/api/admin/qr/" + qr["token"] + "/image",
             },
         }
     )
@@ -3072,17 +3004,13 @@ def admin_link_qr(link_id):
 # ========================================
 
 
-@app.route(
-    "/api/admin/qr-codes",
-    methods=["GET"]
-)
+@app.route("/api/admin/qr-codes", methods=["GET"])
 @admin_required
 def admin_qr_codes():
 
     connection = get_db()
 
-    rows = connection.execute(
-        """
+    rows = connection.execute("""
         SELECT
             q.id,
             q.token,
@@ -3099,8 +3027,7 @@ def admin_qr_codes():
         LEFT JOIN campaigns c
             ON c.id = q.campaign_id
         ORDER BY q.created_at DESC
-        """
-    ).fetchall()
+        """).fetchall()
 
     connection.close()
 
@@ -3110,20 +3037,11 @@ def admin_qr_codes():
 
         item = dict(row)
 
-        item["scan_url"] = (
-            phase7_public_base_url()
-            + "/qr/"
-            + item["token"]
-        )
+        item["scan_url"] = phase7_public_base_url() + "/qr/" + item["token"]
 
-        item["image_url"] = (
-            "/api/admin/qr/"
-            + item["token"]
-            + "/image"
-        )
+        item["image_url"] = "/api/admin/qr/" + item["token"] + "/image"
 
         qr_codes.append(item)
-
 
     return jsonify(
         {
@@ -3138,10 +3056,7 @@ def admin_qr_codes():
 # ========================================
 
 
-@app.route(
-    "/api/admin/qr/<token>/image",
-    methods=["GET"]
-)
+@app.route("/api/admin/qr/<token>/image", methods=["GET"])
 @admin_required
 def admin_qr_image(token):
 
@@ -3159,7 +3074,6 @@ def admin_qr_image(token):
 
     connection.close()
 
-
     if not qr:
 
         return (
@@ -3172,28 +3086,15 @@ def admin_qr_image(token):
             404,
         )
 
+    scan_url = phase7_public_base_url() + "/qr/" + token
 
-    scan_url = (
-        phase7_public_base_url()
-        + "/qr/"
-        + token
-    )
-
-    image_buffer = generate_qr_png(
-            scan_url
-        )
+    image_buffer = generate_qr_png(scan_url)
 
     return send_file(
         image_buffer,
         mimetype="image/png",
-        as_attachment=(
-            request.args.get(
-                "download"
-            ) == "1"
-        ),
-        download_name=(
-            "manas-link-hub-qr.png"
-        ),
+        as_attachment=(request.args.get("download") == "1"),
+        download_name=("manas-link-hub-qr.png"),
     )
 
 
@@ -3202,61 +3103,31 @@ def admin_qr_image(token):
 # ========================================
 
 
-@app.route(
-    "/api/admin/campaigns",
-    methods=["POST"]
-)
+@app.route("/api/admin/campaigns", methods=["POST"])
 @admin_required
 def admin_create_campaign():
 
-    data = request.get_json(
-            silent=True
-        )
+    data = request.get_json(silent=True)
 
-
-    if not isinstance(
-        data,
-        dict
-    ):
+    if not isinstance(data, dict):
 
         return (
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Invalid JSON data.",
+                    "error": "Invalid JSON data.",
                 }
             ),
             400,
         )
 
+    name = str(data.get("name", "")).strip()
 
-    name = str(
-        data.get(
-            "name",
-            ""
-        )
-    ).strip()
+    source = str(data.get("source", "")).strip().lower()
 
-    source = str(
-        data.get(
-            "source",
-            ""
-        )
-    ).strip().lower()
+    medium = str(data.get("medium", "")).strip().lower()
 
-    medium = str(
-        data.get(
-            "medium",
-            ""
-        )
-    ).strip().lower()
-
-
-    link_id = data.get(
-        "link_id"
-    )
-
+    link_id = data.get("link_id")
 
     if not name:
 
@@ -3264,13 +3135,11 @@ def admin_create_campaign():
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Campaign name is required.",
+                    "error": "Campaign name is required.",
                 }
             ),
             400,
         )
-
 
     if len(name) > 100:
 
@@ -3278,13 +3147,11 @@ def admin_create_campaign():
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Campaign name must be 100 characters or less.",
+                    "error": "Campaign name must be 100 characters or less.",
                 }
             ),
             400,
         )
-
 
     if not source:
 
@@ -3292,13 +3159,11 @@ def admin_create_campaign():
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Campaign source is required.",
+                    "error": "Campaign source is required.",
                 }
             ),
             400,
         )
-
 
     if not medium:
 
@@ -3306,13 +3171,11 @@ def admin_create_campaign():
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Campaign medium is required.",
+                    "error": "Campaign medium is required.",
                 }
             ),
             400,
         )
-
 
     if len(source) > 80:
 
@@ -3320,13 +3183,11 @@ def admin_create_campaign():
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Campaign source is too long.",
+                    "error": "Campaign source is too long.",
                 }
             ),
             400,
         )
-
 
     if len(medium) > 80:
 
@@ -3334,13 +3195,11 @@ def admin_create_campaign():
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Campaign medium is too long.",
+                    "error": "Campaign medium is too long.",
                 }
             ),
             400,
         )
-
 
     if link_id in (
         "",
@@ -3353,29 +3212,21 @@ def admin_create_campaign():
 
         try:
 
-            link_id = int(
-                link_id
-            )
+            link_id = int(link_id)
 
-        except (
-            TypeError,
-            ValueError
-        ):
+        except (TypeError, ValueError):
 
             return (
                 jsonify(
                     {
                         "success": False,
-                        "error":
-                            "Invalid link.",
+                        "error": "Invalid link.",
                     }
                 ),
                 400,
             )
 
-
     connection = get_db()
-
 
     if link_id is not None:
 
@@ -3390,7 +3241,6 @@ def admin_create_campaign():
             (link_id,),
         ).fetchone()
 
-
         if not link:
 
             connection.close()
@@ -3399,13 +3249,11 @@ def admin_create_campaign():
                 jsonify(
                     {
                         "success": False,
-                        "error":
-                            "Selected link does not exist.",
+                        "error": "Selected link does not exist.",
                     }
                 ),
                 404,
             )
-
 
     existing = connection.execute(
         """
@@ -3416,7 +3264,6 @@ def admin_create_campaign():
         (name,),
     ).fetchone()
 
-
     if existing:
 
         connection.close()
@@ -3425,22 +3272,15 @@ def admin_create_campaign():
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "A campaign with this name already exists.",
+                    "error": "A campaign with this name already exists.",
                 }
             ),
             409,
         )
 
+    now = datetime.now(timezone.utc).isoformat()
 
-    now = datetime.now(
-        timezone.utc
-    ).isoformat()
-
-    token = secrets.token_urlsafe(
-        12
-    )
-
+    token = secrets.token_urlsafe(12)
 
     connection.execute(
         """
@@ -3468,7 +3308,6 @@ def admin_create_campaign():
         ),
     )
 
-
     campaign = connection.execute(
         """
         SELECT id
@@ -3478,69 +3317,49 @@ def admin_create_campaign():
         (token,),
     ).fetchone()
 
-
     campaign_id = campaign["id"]
 
-
     qr_token = create_qr_record(
-            connection,
-            "Campaign - " + name,
-            link_id=link_id,
-            campaign_id=campaign_id,
-        )
-
+        connection,
+        "Campaign - " + name,
+        link_id=link_id,
+        campaign_id=campaign_id,
+    )
 
     connection.commit()
     connection.close()
 
-
     return jsonify(
         {
             "success": True,
-            "message":
-                "Campaign created successfully.",
+            "message": "Campaign created successfully.",
             "campaign": {
-                "id":
-                    campaign_id,
-                "name":
-                    name,
-                "source":
-                    source,
-                "medium":
-                    medium,
-                "link_id":
-                    link_id,
-                "token":
-                    token,
-                "qr_token":
-                    qr_token,
-                "scan_url":
-                    phase7_public_base_url()
-                    + "/qr/"
-                    + qr_token,
-                "image_url":
-                    "/api/admin/qr/"
-                    + qr_token
-                    + "/image",
+                "id": campaign_id,
+                "name": name,
+                "source": source,
+                "medium": medium,
+                "link_id": link_id,
+                "token": token,
+                "qr_token": qr_token,
+                "scan_url": phase7_public_base_url() + "/qr/" + qr_token,
+                "image_url": "/api/admin/qr/" + qr_token + "/image",
             },
         }
     )
+
 
 # ========================================
 # ADMIN — CAMPAIGN PERFORMANCE
 # ========================================
 
-@app.route(
-    "/api/admin/campaigns",
-    methods=["GET"]
-)
+
+@app.route("/api/admin/campaigns", methods=["GET"])
 @admin_required
 def admin_campaigns():
 
     connection = get_db()
 
-    campaigns = connection.execute(
-        """
+    campaigns = connection.execute("""
         SELECT
             c.id,
             c.name,
@@ -3566,57 +3385,35 @@ def admin_campaigns():
             ON l.id = c.link_id
 
         ORDER BY c.created_at DESC
-        """
-    ).fetchall()
+        """).fetchall()
 
-
-    qr_rows = connection.execute(
-        """
+    qr_rows = connection.execute("""
         SELECT
             campaign_id,
             token
         FROM qr_codes
         WHERE campaign_id IS NOT NULL
-        """
-    ).fetchall()
+        """).fetchall()
 
-
-    qr_map = {
-        row["campaign_id"]: row["token"]
-        for row in qr_rows
-    }
-
+    qr_map = {row["campaign_id"]: row["token"] for row in qr_rows}
 
     connection.close()
 
-
     result = []
-
 
     for campaign in campaigns:
 
         item = dict(campaign)
 
-        qr_token = qr_map.get(
-            item["id"]
-        )
-
+        qr_token = qr_map.get(item["id"])
 
         if qr_token:
 
             item["qr_token"] = qr_token
 
-            item["scan_url"] = (
-                phase7_public_base_url()
-                + "/qr/"
-                + qr_token
-            )
+            item["scan_url"] = phase7_public_base_url() + "/qr/" + qr_token
 
-            item["image_url"] = (
-                "/api/admin/qr/"
-                + qr_token
-                + "/image"
-            )
+            item["image_url"] = "/api/admin/qr/" + qr_token + "/image"
 
         else:
 
@@ -3624,9 +3421,7 @@ def admin_campaigns():
             item["scan_url"] = None
             item["image_url"] = None
 
-
         result.append(item)
-
 
     return jsonify(
         {
@@ -3641,14 +3436,9 @@ def admin_campaigns():
 # ========================================
 
 
-@app.route(
-    "/api/admin/campaigns/<int:campaign_id>",
-    methods=["DELETE"]
-)
+@app.route("/api/admin/campaigns/<int:campaign_id>", methods=["DELETE"])
 @admin_required
-def admin_delete_campaign(
-    campaign_id
-):
+def admin_delete_campaign(campaign_id):
 
     connection = get_db()
 
@@ -3661,7 +3451,6 @@ def admin_delete_campaign(
         (campaign_id,),
     ).fetchone()
 
-
     if not existing:
 
         connection.close()
@@ -3670,13 +3459,11 @@ def admin_delete_campaign(
             jsonify(
                 {
                     "success": False,
-                    "error":
-                        "Campaign not found.",
+                    "error": "Campaign not found.",
                 }
             ),
             404,
         )
-
 
     connection.execute(
         """
@@ -3686,7 +3473,6 @@ def admin_delete_campaign(
         (campaign_id,),
     )
 
-
     connection.execute(
         """
         DELETE FROM campaigns
@@ -3695,16 +3481,13 @@ def admin_delete_campaign(
         (campaign_id,),
     )
 
-
     connection.commit()
     connection.close()
-
 
     return jsonify(
         {
             "success": True,
-            "message":
-                "Campaign deleted successfully.",
+            "message": "Campaign deleted successfully.",
         }
     )
 
@@ -3714,10 +3497,7 @@ def admin_delete_campaign(
 # ========================================
 
 
-@app.route(
-    "/qr/<token>",
-    methods=["GET"]
-)
+@app.route("/qr/<token>", methods=["GET"])
 def public_qr_redirect(token):
 
     connection = get_db()
@@ -3755,7 +3535,6 @@ def public_qr_redirect(token):
         (token,),
     ).fetchone()
 
-
     if not qr:
 
         connection.close()
@@ -3764,7 +3543,6 @@ def public_qr_redirect(token):
             "QR code not found.",
             404,
         )
-
 
     if not qr["enabled"]:
 
@@ -3775,11 +3553,7 @@ def public_qr_redirect(token):
             410,
         )
 
-
-    if (
-        qr["campaign_id"] is not None
-        and not qr["campaign_enabled"]
-    ):
+    if qr["campaign_id"] is not None and not qr["campaign_enabled"]:
 
         connection.close()
 
@@ -3788,14 +3562,7 @@ def public_qr_redirect(token):
             410,
         )
 
-
-    if (
-        qr["link_id"] is not None
-        and (
-            not qr["link_url"]
-            or not qr["link_enabled"]
-        )
-    ):
+    if qr["link_id"] is not None and (not qr["link_url"] or not qr["link_enabled"]):
 
         connection.close()
 
@@ -3803,7 +3570,6 @@ def public_qr_redirect(token):
             "The destination link is unavailable.",
             410,
         )
-
 
     if qr["link_id"] is not None:
 
@@ -3817,21 +3583,13 @@ def public_qr_redirect(token):
 
         link_name = "Main Link Hub"
 
+    timestamp = datetime.now(timezone.utc).isoformat()
 
-    timestamp = datetime.now(
-            timezone.utc
-        ).isoformat()
+    user_agent = request.headers.get("User-Agent")
 
-    user_agent = request.headers.get(
-            "User-Agent"
-        )
-
-    referrer = request.headers.get(
-            "Referer"
-        )
+    referrer = request.headers.get("Referer")
 
     ip_address = request.remote_addr
-
 
     connection.execute(
         """
@@ -3872,24 +3630,20 @@ def public_qr_redirect(token):
             referrer,
             ip_address,
             None,
-
             qr["campaign_id"],
             qr["campaign_name"],
             qr["campaign_source"],
             qr["campaign_medium"],
-
             token,
         ),
     )
 
-
     connection.commit()
     connection.close()
 
+    return redirect(destination)
 
-    return redirect(
-        destination
-    )
+
 # ========================================
 # RECORD ANALYTICS EVENT
 # PUBLIC
@@ -5156,11 +4910,8 @@ def clear_analytics():
 
 
 # ========================================
-
 # ALL EVENTS
-
 # PROTECTED
-
 # ========================================
 
 
@@ -5209,6 +4960,1303 @@ def all_events():
         safe_events.append(item)
 
     return jsonify({"events": safe_events})
+
+
+# ========================================
+# PHASE 8 — EXPORT CSV
+# PROTECTED
+# ========================================
+
+
+@app.route("/api/export/csv", methods=["GET"])
+@admin_required
+def export_csv():
+
+    connection = get_db()
+
+    events = connection.execute("""
+        SELECT
+            id,
+            event_type,
+            link_name,
+            timestamp,
+            user_agent,
+            referrer,
+            ip_address,
+            timezone,
+            campaign_id,
+            campaign_name,
+            campaign_source,
+            campaign_medium,
+            qr_token
+        FROM events
+        ORDER BY id DESC
+        """).fetchall()
+
+    connection.close()
+
+    output = StringIO()
+
+    writer = csv.writer(output)
+
+    # ----------------------------------------
+    # CSV HEADER
+    # ----------------------------------------
+
+    writer.writerow(
+        [
+            "ID",
+            "Event Type",
+            "Link",
+            "Timestamp",
+            "Browser",
+            "Device",
+            "Referrer",
+            "IP Address",
+            "Timezone",
+            "Campaign ID",
+            "Campaign Name",
+            "Campaign Source",
+            "Campaign Medium",
+            "QR Token",
+        ]
+    )
+
+    # ----------------------------------------
+    # CSV DATA
+    # ----------------------------------------
+
+    for event in events:
+
+        row = dict(event)
+
+        writer.writerow(
+            [
+                row.get("id"),
+                row.get("event_type"),
+                row.get("link_name"),
+                row.get("timestamp"),
+                detect_browser(row.get("user_agent")),
+                detect_device(row.get("user_agent")),
+                safe_referrer(row.get("referrer")),
+                mask_ip(row.get("ip_address")),
+                row.get("timezone"),
+                row.get("campaign_id"),
+                row.get("campaign_name"),
+                row.get("campaign_source"),
+                row.get("campaign_medium"),
+                row.get("qr_token"),
+            ]
+        )
+
+    output.seek(0)
+
+    return app.response_class(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=manas-link-hub-analytics.csv"
+        },
+    )
+
+
+# ========================================
+# PHASE 8 — EXPORT FILTERED CSV
+# PROTECTED
+# ========================================
+
+
+@app.route("/api/export/csv/filtered", methods=["GET"])
+@admin_required
+def export_filtered_csv():
+
+    connection = get_db()
+
+    start = request.args.get("start")
+    end = request.args.get("end")
+
+    # ----------------------------------------
+    # DATE FILTER
+    # ----------------------------------------
+
+    date_filter = ""
+    date_params = []
+
+    if start and end:
+
+        date_filter = """
+            WHERE timestamp >= ?
+            AND timestamp < ?
+        """
+
+        date_params = [
+            start,
+            end,
+        ]
+
+    # ----------------------------------------
+    # GET FILTERED EVENTS
+    # ----------------------------------------
+
+    events = connection.execute(
+        f"""
+        SELECT
+            id,
+            event_type,
+            link_name,
+            timestamp,
+            user_agent,
+            referrer,
+            ip_address,
+            timezone,
+            campaign_id,
+            campaign_name,
+            campaign_source,
+            campaign_medium,
+            qr_token
+        FROM events
+        {date_filter}
+        ORDER BY id DESC
+        """,
+        date_params,
+    ).fetchall()
+
+    connection.close()
+
+    # ----------------------------------------
+    # CREATE CSV
+    # ----------------------------------------
+
+    output = StringIO()
+
+    writer = csv.writer(output)
+
+    writer.writerow(
+        [
+            "ID",
+            "Event Type",
+            "Link",
+            "Timestamp",
+            "Browser",
+            "Device",
+            "Referrer",
+            "IP Address",
+            "Timezone",
+            "Campaign ID",
+            "Campaign Name",
+            "Campaign Source",
+            "Campaign Medium",
+            "QR Token",
+        ]
+    )
+
+    # ----------------------------------------
+    # CSV DATA
+    # ----------------------------------------
+
+    for event in events:
+
+        row = dict(event)
+
+        writer.writerow(
+            [
+                row.get("id"),
+                row.get("event_type"),
+                row.get("link_name"),
+                row.get("timestamp"),
+                detect_browser(row.get("user_agent")),
+                detect_device(row.get("user_agent")),
+                safe_referrer(row.get("referrer")),
+                mask_ip(row.get("ip_address")),
+                row.get("timezone"),
+                row.get("campaign_id"),
+                row.get("campaign_name"),
+                row.get("campaign_source"),
+                row.get("campaign_medium"),
+                row.get("qr_token"),
+            ]
+        )
+
+    output.seek(0)
+
+    return app.response_class(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=manas-link-hub-filtered-analytics.csv"
+        },
+    )
+
+
+# ========================================
+# PHASE 8 — ANALYTICS SUMMARY
+# PROTECTED
+# ========================================
+
+
+@app.route("/api/reports/summary", methods=["GET"])
+@admin_required
+def analytics_summary():
+
+    connection = get_db()
+
+    start = request.args.get("start")
+    end = request.args.get("end")
+
+    # ----------------------------------------
+    # DATE FILTER
+    # ----------------------------------------
+
+    date_filter = ""
+
+    date_params = []
+
+    if start and end:
+
+        date_filter = """
+            WHERE timestamp >= ?
+            AND timestamp < ?
+        """
+
+        date_params = [
+            start,
+            end,
+        ]
+
+    # ----------------------------------------
+    # TOTAL EVENTS
+    # ----------------------------------------
+
+    total_events = connection.execute(
+        f"""
+        SELECT COUNT(*) AS count
+        FROM events
+        {date_filter}
+        """,
+        date_params,
+    ).fetchone()["count"]
+
+    # ----------------------------------------
+    # TOTAL VISITS
+    # ----------------------------------------
+
+    visit_params = []
+
+    visit_filter = """
+        event_type = 'visit'
+    """
+
+    if start and end:
+
+        visit_filter += """
+            AND timestamp >= ?
+            AND timestamp < ?
+        """
+
+        visit_params = [
+            start,
+            end,
+        ]
+
+    total_visits = connection.execute(
+        f"""
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE {visit_filter}
+        """,
+        visit_params,
+    ).fetchone()["count"]
+
+    # ----------------------------------------
+    # TOTAL CLICKS
+    # ----------------------------------------
+
+    click_params = []
+
+    click_filter = """
+        event_type = 'click'
+    """
+
+    if start and end:
+
+        click_filter += """
+            AND timestamp >= ?
+            AND timestamp < ?
+        """
+
+        click_params = [
+            start,
+            end,
+        ]
+
+    total_clicks = connection.execute(
+        f"""
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE {click_filter}
+        """,
+        click_params,
+    ).fetchone()["count"]
+
+    # ----------------------------------------
+    # VISITOR EVENTS
+    # ----------------------------------------
+
+    visitor_events = connection.execute(
+        f"""
+        SELECT
+            ip_address,
+            user_agent,
+            referrer
+        FROM events
+        WHERE event_type = 'visit'
+
+        {
+            "AND timestamp >= ? AND timestamp < ?"
+            if start and end
+            else ""
+        }
+
+        """,
+        date_params,
+    ).fetchall()
+
+    # ----------------------------------------
+    # UNIQUE + REPEAT VISITORS
+    # ----------------------------------------
+
+    visitor_counts = {}
+
+    for event in visitor_events:
+
+        ip = event["ip_address"]
+
+        if not ip:
+
+            continue
+
+        visitor_counts[ip] = visitor_counts.get(ip, 0) + 1
+
+    unique_visitors = len(visitor_counts)
+
+    repeat_visitors = sum(1 for count in visitor_counts.values() if count > 1)
+
+    # ----------------------------------------
+    # BROWSER
+    # ----------------------------------------
+
+    browser_breakdown = build_breakdown(
+        [detect_browser(event["user_agent"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # DEVICE
+    # ----------------------------------------
+
+    device_breakdown = build_breakdown(
+        [detect_device(event["user_agent"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # REFERRER
+    # ----------------------------------------
+
+    referrer_breakdown = build_breakdown(
+        [safe_referrer(event["referrer"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # TRAFFIC SOURCE
+    # ----------------------------------------
+
+    traffic_source_breakdown = build_breakdown(
+        [detect_traffic_source(event["referrer"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # TOP LINK
+    # ----------------------------------------
+
+    link_clicks = connection.execute(
+        f"""
+        SELECT
+            link_name,
+            COUNT(*) AS clicks
+        FROM events
+        WHERE event_type = 'click'
+
+        {
+            "AND timestamp >= ? AND timestamp < ?"
+            if start and end
+            else ""
+        }
+
+        GROUP BY link_name
+        ORDER BY clicks DESC
+        LIMIT 1
+        """,
+        date_params,
+    ).fetchone()
+
+    top_link = None
+
+    if link_clicks:
+
+        top_link = {
+            "name": link_clicks["link_name"],
+            "clicks": link_clicks["clicks"],
+        }
+
+    # ----------------------------------------
+    # CLICK RATE
+    # ----------------------------------------
+
+    click_rate = (total_clicks / total_visits) * 100 if total_visits > 0 else 0
+
+    # ----------------------------------------
+    # LAST ACTIVITY
+    # ----------------------------------------
+
+    last_activity = connection.execute(
+        f"""
+        SELECT
+            id,
+            event_type,
+            link_name,
+            timestamp
+        FROM events
+
+        {
+            "WHERE timestamp >= ? AND timestamp < ?"
+            if start and end
+            else ""
+        }
+
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        date_params,
+    ).fetchone()
+
+    connection.close()
+
+    # ----------------------------------------
+    # RESPONSE
+    # ----------------------------------------
+
+    return jsonify(
+        {
+            "success": True,
+            "range": {
+                "start": start,
+                "end": end,
+            },
+            "summary": {
+                "total_events": total_events,
+                "total_visits": total_visits,
+                "total_clicks": total_clicks,
+                "unique_visitors": unique_visitors,
+                "repeat_visitors": repeat_visitors,
+                "click_rate": round(click_rate, 2),
+                "top_link": top_link,
+                "top_browser": (
+                    browser_breakdown[0]["name"] if browser_breakdown else None
+                ),
+                "top_device": (
+                    device_breakdown[0]["name"] if device_breakdown else None
+                ),
+                "top_referrer": (
+                    referrer_breakdown[0]["name"] if referrer_breakdown else None
+                ),
+                "top_traffic_source": (
+                    traffic_source_breakdown[0]["name"]
+                    if traffic_source_breakdown
+                    else None
+                ),
+                "last_activity": (dict(last_activity) if last_activity else None),
+            },
+        }
+    )
+
+
+# ========================================
+# PHASE 8 — MONTHLY REPORT
+# PROTECTED
+# ========================================
+
+
+@app.route("/api/reports/monthly", methods=["GET"])
+@admin_required
+def monthly_report():
+
+    connection = get_db()
+
+    month = request.args.get("month")
+
+    # ----------------------------------------
+    # VALIDATE MONTH
+    # ----------------------------------------
+
+    if not month:
+
+        connection.close()
+
+        return (
+            jsonify({"success": False, "message": "Month is required. Use YYYY-MM."}),
+            400,
+        )
+
+    try:
+
+        month_start = datetime.strptime(month, "%Y-%m").replace(tzinfo=timezone.utc)
+
+    except ValueError:
+
+        connection.close()
+
+        return (
+            jsonify({"success": False, "message": "Invalid month. Use YYYY-MM."}),
+            400,
+        )
+
+    # ----------------------------------------
+    # NEXT MONTH
+    # ----------------------------------------
+
+    if month_start.month == 12:
+
+        next_month = month_start.replace(year=month_start.year + 1, month=1, day=1)
+
+    else:
+
+        next_month = month_start.replace(month=month_start.month + 1, day=1)
+
+    start = month_start.isoformat()
+    end = next_month.isoformat()
+
+    # ----------------------------------------
+    # TOTAL EVENTS
+    # ----------------------------------------
+
+    total_events = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE timestamp >= ?
+        AND timestamp < ?
+        """,
+        [
+            start,
+            end,
+        ],
+    ).fetchone()["count"]
+
+    # ----------------------------------------
+    # TOTAL VISITS
+    # ----------------------------------------
+
+    total_visits = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE event_type = 'visit'
+        AND timestamp >= ?
+        AND timestamp < ?
+        """,
+        [
+            start,
+            end,
+        ],
+    ).fetchone()["count"]
+
+    # ----------------------------------------
+    # TOTAL CLICKS
+    # ----------------------------------------
+
+    total_clicks = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE event_type = 'click'
+        AND timestamp >= ?
+        AND timestamp < ?
+        """,
+        [
+            start,
+            end,
+        ],
+    ).fetchone()["count"]
+
+    # ----------------------------------------
+    # VISITOR EVENTS
+    # ----------------------------------------
+
+    visitor_events = connection.execute(
+        """
+        SELECT
+            ip_address,
+            user_agent,
+            referrer
+        FROM events
+        WHERE event_type = 'visit'
+        AND timestamp >= ?
+        AND timestamp < ?
+        """,
+        [
+            start,
+            end,
+        ],
+    ).fetchall()
+
+    # ----------------------------------------
+    # UNIQUE + REPEAT VISITORS
+    # ----------------------------------------
+
+    visitor_counts = {}
+
+    for event in visitor_events:
+
+        ip = event["ip_address"]
+
+        if not ip:
+
+            continue
+
+        visitor_counts[ip] = visitor_counts.get(ip, 0) + 1
+
+    unique_visitors = len(visitor_counts)
+
+    repeat_visitors = sum(1 for count in visitor_counts.values() if count > 1)
+
+    # ----------------------------------------
+    # BROWSER BREAKDOWN
+    # ----------------------------------------
+
+    browser_breakdown = build_breakdown(
+        [detect_browser(event["user_agent"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # DEVICE BREAKDOWN
+    # ----------------------------------------
+
+    device_breakdown = build_breakdown(
+        [detect_device(event["user_agent"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # TRAFFIC SOURCE BREAKDOWN
+    # ----------------------------------------
+
+    traffic_source_breakdown = build_breakdown(
+        [detect_traffic_source(event["referrer"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # TOP LINK
+    # ----------------------------------------
+
+    top_link = connection.execute(
+        """
+        SELECT
+            link_name,
+            COUNT(*) AS clicks
+        FROM events
+        WHERE event_type = 'click'
+        AND timestamp >= ?
+        AND timestamp < ?
+        GROUP BY link_name
+        ORDER BY clicks DESC
+        LIMIT 1
+        """,
+        [
+            start,
+            end,
+        ],
+    ).fetchone()
+
+    top_link_data = None
+
+    if top_link:
+
+        top_link_data = {
+            "name": top_link["link_name"],
+            "clicks": top_link["clicks"],
+        }
+
+    # ----------------------------------------
+    # CLICK RATE
+    # ----------------------------------------
+
+    click_rate = (total_clicks / total_visits) * 100 if total_visits > 0 else 0
+
+    # ----------------------------------------
+    # DAILY ACTIVITY
+    # ----------------------------------------
+
+    daily_rows = connection.execute(
+        """
+        SELECT
+            substr(timestamp, 1, 10) AS date,
+            COUNT(*) AS events,
+            SUM(
+                CASE
+                    WHEN event_type = 'visit'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS visits,
+            SUM(
+                CASE
+                    WHEN event_type = 'click'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS clicks
+        FROM events
+        WHERE timestamp >= ?
+        AND timestamp < ?
+        GROUP BY substr(timestamp, 1, 10)
+        ORDER BY date ASC
+        """,
+        [
+            start,
+            end,
+        ],
+    ).fetchall()
+
+    daily_activity = [
+        {
+            "date": row["date"],
+            "events": row["events"],
+            "visits": row["visits"],
+            "clicks": row["clicks"],
+        }
+        for row in daily_rows
+    ]
+
+    connection.close()
+
+    # ----------------------------------------
+    # RESPONSE
+    # ----------------------------------------
+
+    return jsonify(
+        {
+            "success": True,
+            "month": month,
+            "range": {
+                "start": start,
+                "end": end,
+            },
+            "summary": {
+                "total_events": total_events,
+                "total_visits": total_visits,
+                "total_clicks": total_clicks,
+                "unique_visitors": unique_visitors,
+                "repeat_visitors": repeat_visitors,
+                "click_rate": round(click_rate, 2),
+                "top_link": top_link_data,
+                "top_browser": (
+                    browser_breakdown[0]["name"] if browser_breakdown else None
+                ),
+                "top_device": (
+                    device_breakdown[0]["name"] if device_breakdown else None
+                ),
+                "top_traffic_source": (
+                    traffic_source_breakdown[0]["name"]
+                    if traffic_source_breakdown
+                    else None
+                ),
+            },
+            "daily_activity": daily_activity,
+        }
+    )
+
+
+# ========================================
+# PHASE 8 — PDF MONTHLY REPORT
+# PROTECTED
+# ========================================
+
+
+@app.route("/api/reports/monthly/pdf", methods=["GET"])
+@admin_required
+def monthly_report_pdf():
+
+    connection = get_db()
+
+    month = request.args.get("month")
+
+    # ----------------------------------------
+    # VALIDATE MONTH
+    # ----------------------------------------
+
+    if not month:
+
+        connection.close()
+
+        return (
+            jsonify({"success": False, "message": "Month is required. Use YYYY-MM."}),
+            400,
+        )
+
+    try:
+
+        month_start = datetime.strptime(month, "%Y-%m").replace(tzinfo=timezone.utc)
+
+    except ValueError:
+
+        connection.close()
+
+        return (
+            jsonify({"success": False, "message": "Invalid month. Use YYYY-MM."}),
+            400,
+        )
+
+    # ----------------------------------------
+    # NEXT MONTH
+    # ----------------------------------------
+
+    if month_start.month == 12:
+
+        next_month = month_start.replace(year=month_start.year + 1, month=1, day=1)
+
+    else:
+
+        next_month = month_start.replace(month=month_start.month + 1, day=1)
+
+    start = month_start.isoformat()
+    end = next_month.isoformat()
+
+    # ----------------------------------------
+    # SUMMARY
+    # ----------------------------------------
+
+    total_events = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE timestamp >= ?
+        AND timestamp < ?
+        """,
+        [start, end],
+    ).fetchone()["count"]
+
+    total_visits = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE event_type = 'visit'
+        AND timestamp >= ?
+        AND timestamp < ?
+        """,
+        [start, end],
+    ).fetchone()["count"]
+
+    total_clicks = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM events
+        WHERE event_type = 'click'
+        AND timestamp >= ?
+        AND timestamp < ?
+        """,
+        [start, end],
+    ).fetchone()["count"]
+
+    visitor_events = connection.execute(
+        """
+        SELECT
+            ip_address,
+            user_agent,
+            referrer
+        FROM events
+        WHERE event_type = 'visit'
+        AND timestamp >= ?
+        AND timestamp < ?
+        """,
+        [start, end],
+    ).fetchall()
+
+    # ----------------------------------------
+    # VISITORS
+    # ----------------------------------------
+
+    visitor_counts = {}
+
+    for event in visitor_events:
+
+        ip = event["ip_address"]
+
+        if not ip:
+
+            continue
+
+        visitor_counts[ip] = visitor_counts.get(ip, 0) + 1
+
+    unique_visitors = len(visitor_counts)
+
+    repeat_visitors = sum(1 for count in visitor_counts.values() if count > 1)
+
+    # ----------------------------------------
+    # BROWSER / DEVICE / SOURCE
+    # ----------------------------------------
+
+    browser_breakdown = build_breakdown(
+        [detect_browser(event["user_agent"]) for event in visitor_events]
+    )
+
+    device_breakdown = build_breakdown(
+        [detect_device(event["user_agent"]) for event in visitor_events]
+    )
+
+    traffic_source_breakdown = build_breakdown(
+        [detect_traffic_source(event["referrer"]) for event in visitor_events]
+    )
+
+    # ----------------------------------------
+    # TOP LINK
+    # ----------------------------------------
+
+    top_link = connection.execute(
+        """
+        SELECT
+            link_name,
+            COUNT(*) AS clicks
+        FROM events
+        WHERE event_type = 'click'
+        AND timestamp >= ?
+        AND timestamp < ?
+        GROUP BY link_name
+        ORDER BY clicks DESC
+        LIMIT 1
+        """,
+        [start, end],
+    ).fetchone()
+
+    top_link_name = top_link["link_name"] if top_link else "No clicks"
+
+    top_link_clicks = top_link["clicks"] if top_link else 0
+
+    # ----------------------------------------
+    # CLICK RATE
+    # ----------------------------------------
+
+    click_rate = (total_clicks / total_visits) * 100 if total_visits > 0 else 0
+
+    # ----------------------------------------
+    # DAILY ACTIVITY
+    # ----------------------------------------
+
+    daily_rows = connection.execute(
+        """
+        SELECT
+            substr(timestamp, 1, 10) AS date,
+            COUNT(*) AS events,
+            SUM(
+                CASE
+                    WHEN event_type = 'visit'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS visits,
+            SUM(
+                CASE
+                    WHEN event_type = 'click'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS clicks
+        FROM events
+        WHERE timestamp >= ?
+        AND timestamp < ?
+        GROUP BY substr(timestamp, 1, 10)
+        ORDER BY date ASC
+        """,
+        [start, end],
+    ).fetchall()
+
+    connection.close()
+
+    # ----------------------------------------
+    # CREATE PDF
+    # ----------------------------------------
+
+    pdf_buffer = BytesIO()
+
+    document = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = styles["Title"]
+
+    heading_style = styles["Heading2"]
+
+    normal_style = styles["BodyText"]
+
+    story = []
+
+    # ----------------------------------------
+    # TITLE
+    # ----------------------------------------
+
+    story.append(Paragraph("Manas Link Hub", title_style))
+
+    story.append(Paragraph(f"Monthly Analytics Report — {month}", heading_style))
+
+    story.append(Spacer(1, 8))
+
+    story.append(
+        Paragraph(
+            f"Report period: "
+            f"{month_start.strftime('%d %B %Y')} "
+            f"to "
+            f"{(next_month - timedelta(days=1)).strftime('%d %B %Y')}",
+            normal_style,
+        )
+    )
+
+    story.append(Spacer(1, 14))
+
+    # ----------------------------------------
+    # SUMMARY TABLE
+    # ----------------------------------------
+
+    summary_data = [
+        ["Metric", "Value"],
+        ["Total Events", str(total_events)],
+        ["Total Visits", str(total_visits)],
+        ["Total Clicks", str(total_clicks)],
+        ["Click Rate", f"{click_rate:.2f}%"],
+        ["Unique Visitors", str(unique_visitors)],
+        ["Repeat Visitors", str(repeat_visitors)],
+        ["Top Link", f"{top_link_name} " f"({top_link_clicks} clicks)"],
+        [
+            "Top Browser",
+            (browser_breakdown[0]["name"] if browser_breakdown else "No data"),
+        ],
+        [
+            "Top Device",
+            (device_breakdown[0]["name"] if device_breakdown else "No data"),
+        ],
+        [
+            "Top Traffic Source",
+            (
+                traffic_source_breakdown[0]["name"]
+                if traffic_source_breakdown
+                else "No data"
+            ),
+        ],
+    ]
+
+    summary_table = Table(
+        summary_data,
+        colWidths=[
+            70 * mm,
+            95 * mm,
+        ],
+    )
+
+    summary_table.setStyle(
+        TableStyle(
+            [
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, 0),
+                    colors.HexColor("#eeeeee"),
+                ),
+                (
+                    "FONTNAME",
+                    (0, 0),
+                    (-1, 0),
+                    "Helvetica-Bold",
+                ),
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.5,
+                    colors.grey,
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE",
+                ),
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+            ]
+        )
+    )
+
+    story.append(summary_table)
+
+    story.append(Spacer(1, 18))
+
+    # ----------------------------------------
+    # DAILY ACTIVITY
+    # ----------------------------------------
+
+    story.append(Paragraph("Daily Activity", heading_style))
+
+    story.append(Spacer(1, 8))
+
+    daily_data = [
+        [
+            "Date",
+            "Events",
+            "Visits",
+            "Clicks",
+        ]
+    ]
+
+    for row in daily_rows:
+
+        daily_data.append(
+            [
+                row["date"],
+                str(row["events"]),
+                str(row["visits"]),
+                str(row["clicks"]),
+            ]
+        )
+
+    if len(daily_data) == 1:
+
+        daily_data.append(
+            [
+                "No activity",
+                "0",
+                "0",
+                "0",
+            ]
+        )
+
+    daily_table = Table(
+        daily_data,
+        colWidths=[
+            60 * mm,
+            35 * mm,
+            35 * mm,
+            35 * mm,
+        ],
+        repeatRows=1,
+    )
+
+    daily_table.setStyle(
+        TableStyle(
+            [
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, 0),
+                    colors.HexColor("#eeeeee"),
+                ),
+                (
+                    "FONTNAME",
+                    (0, 0),
+                    (-1, 0),
+                    "Helvetica-Bold",
+                ),
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.5,
+                    colors.grey,
+                ),
+                (
+                    "ALIGN",
+                    (1, 1),
+                    (-1, -1),
+                    "CENTER",
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE",
+                ),
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    6,
+                ),
+            ]
+        )
+    )
+
+    story.append(daily_table)
+
+    story.append(Spacer(1, 18))
+
+    story.append(Paragraph("Generated by Manas Link Hub Analytics", normal_style))
+
+    # ----------------------------------------
+    # BUILD PDF
+    # ----------------------------------------
+
+    document.build(story)
+
+    pdf_buffer.seek(0)
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=(f"manas-link-hub-report-{month}.pdf"),
+    )
 
 
 # ========================================

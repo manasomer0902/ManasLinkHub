@@ -5,6 +5,12 @@
 
     <meta charset="UTF-8">
 
+    <link
+        rel="icon"
+        type="image/png"
+        href="/favicon.png"
+    >
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
@@ -2278,6 +2284,231 @@
         }
 
     }
+
+    /* ==============================
+    PHASE 8 — REPORTS
+    ============================== */
+
+    .reports-grid {
+
+        display: grid;
+
+        grid-template-columns:
+            repeat(2, 1fr);
+
+        gap: 14px;
+    }
+
+
+    .report-card {
+
+        padding: 20px;
+
+        border:
+            1px solid var(--border);
+
+        border-radius: 18px;
+
+        background: var(--card);
+
+        backdrop-filter: blur(15px);
+
+    }
+
+
+    .report-card-title {
+
+        margin-bottom: 6px;
+
+        font-size: 14px;
+
+        font-weight: 700;
+
+    }
+
+
+    .report-card-subtitle {
+
+        margin-bottom: 18px;
+
+        color: var(--muted);
+
+        font-size: 12px;
+
+        line-height: 1.5;
+
+    }
+
+
+    .report-controls {
+
+        display: flex;
+
+        align-items: center;
+
+        gap: 10px;
+
+        flex-wrap: wrap;
+
+    }
+
+
+    .report-input {
+
+        padding: 10px 12px;
+
+        border:
+            1px solid var(--border);
+
+        border-radius: 10px;
+
+        background: rgba(255,255,255,0.04);
+
+        color: var(--text);
+
+        font-size: 12px;
+
+        outline: none;
+
+    }
+
+
+    .report-input:focus {
+
+        border-color:
+            var(--accent);
+
+    }
+
+
+    .report-button {
+
+        padding: 10px 14px;
+
+        border: none;
+
+        border-radius: 10px;
+
+        background: var(--accent);
+
+        color: white;
+
+        font-size: 12px;
+
+        font-weight: 600;
+
+        cursor: pointer;
+
+        text-decoration: none;
+
+        transition:
+            transform 0.15s ease,
+            opacity 0.15s ease;
+
+    }
+
+
+    .report-button:hover {
+
+        opacity: 0.9;
+
+        transform:
+            translateY(-1px);
+
+    }
+
+
+    .report-button.secondary {
+
+        background:
+            rgba(255,255,255,0.07);
+
+        border:
+            1px solid var(--border);
+
+    }
+
+
+    .report-summary {
+
+        display: grid;
+
+        grid-template-columns:
+            repeat(3, 1fr);
+
+        gap: 10px;
+
+        margin-top: 16px;
+
+    }
+
+
+    .report-stat {
+
+        padding: 12px;
+
+        border:
+            1px solid var(--border);
+
+        border-radius: 12px;
+
+        background:
+            rgba(255,255,255,0.025);
+
+    }
+
+
+    .report-stat-label {
+
+        color: var(--muted);
+
+        font-size: 10px;
+
+        text-transform: uppercase;
+
+        letter-spacing: 0.8px;
+
+    }
+
+
+    .report-stat-value {
+
+        margin-top: 5px;
+
+        font-size: 18px;
+
+        font-weight: 700;
+
+    }
+
+
+    .report-status {
+
+        margin-top: 12px;
+
+        color: var(--muted);
+
+        font-size: 11px;
+
+    }
+
+
+    @media (max-width: 650px) {
+
+        .reports-grid {
+
+            grid-template-columns: 1fr;
+
+        }
+
+        .report-summary {
+
+            grid-template-columns:
+                repeat(2, 1fr);
+
+        }
+
+    }
     </style>
 
 </head>
@@ -3042,23 +3273,6 @@
 
                     </label>
 
-
-                    <label class="link-manager-field">
-
-                        <span>
-                            Icon
-                        </span>
-
-                        <input
-                            type="text"
-                            id="linkManagerIcon"
-                            maxlength="10"
-                            placeholder="GH"
-                        >
-
-                    </label>
-
-
                     <label class="link-manager-field">
 
                         <span>
@@ -3372,6 +3586,356 @@
 
         </section>
 
+        <!-- ==============================
+             PHASE 8 — REPORTS
+        =============================== -->
+
+        <section class="section">
+
+            <div class="section-title">
+                Reports & Export
+            </div>
+
+
+            <div class="reports-grid">
+
+
+                <!-- ANALYTICS SUMMARY -->
+
+                <div class="report-card">
+
+                    <div class="report-card-title">
+                        Analytics Summary
+                    </div>
+
+                    <div class="report-card-subtitle">
+                        Generate a summary for the currently
+                        selected analytics period.
+                    </div>
+
+
+                    <div class="report-controls">
+
+                        <button
+                            type="button"
+                            class="report-button"
+                            id="loadReportSummaryButton"
+                        >
+                            Generate Summary
+                        </button>
+
+
+                        <a
+                            class="report-button secondary"
+                            id="exportFilteredCsvButton"
+                            href="#"
+                        >
+                            Export Filtered CSV
+                        </a>
+
+                    </div>
+
+
+                    <div
+                        class="report-summary"
+                        id="reportSummaryStats"
+                    >
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Events
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="reportTotalEvents"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Visits
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="reportTotalVisits"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Clicks
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="reportTotalClicks"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Unique
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="reportUniqueVisitors"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Repeat
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="reportRepeatVisitors"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Click Rate
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="reportClickRate"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="report-status"
+                        id="reportSummaryStatus"
+                    >
+                        Select a period and generate a summary.
+                    </div>
+
+                </div>
+
+
+                <!-- MONTHLY REPORT -->
+
+                <div class="report-card">
+
+                    <div class="report-card-title">
+                        Monthly Report
+                    </div>
+
+                    <div class="report-card-subtitle">
+                        Generate a monthly analytics report
+                        and download it as PDF.
+                    </div>
+
+
+                    <div class="report-controls">
+
+                        <input
+                            type="month"
+                            class="report-input"
+                            id="reportMonth"
+                        >
+
+
+                        <button
+                            type="button"
+                            class="report-button"
+                            id="loadMonthlyReportButton"
+                        >
+                            Generate
+                        </button>
+
+
+                        <a
+                            class="report-button secondary"
+                            id="downloadMonthlyPdfButton"
+                            href="#"
+                        >
+                            Download PDF
+                        </a>
+
+                    </div>
+
+
+                    <div
+                        class="report-summary"
+                        id="monthlyReportStats"
+                    >
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Events
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="monthlyTotalEvents"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Visits
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="monthlyTotalVisits"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Clicks
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="monthlyTotalClicks"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Unique
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="monthlyUniqueVisitors"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Top Link
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="monthlyTopLink"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+
+                        <div class="report-stat">
+
+                            <div class="report-stat-label">
+                                Click Rate
+                            </div>
+
+                            <div
+                                class="report-stat-value"
+                                id="monthlyClickRate"
+                            >
+                                —
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="report-status"
+                        id="monthlyReportStatus"
+                    >
+                        Select a month and generate the report.
+                    </div>
+
+                </div>
+
+
+                <!-- ALL DATA CSV -->
+
+                <div class="report-card">
+
+                    <div class="report-card-title">
+                        Complete Analytics Export
+                    </div>
+
+                    <div class="report-card-subtitle">
+                        Download all tracked analytics events
+                        as a CSV file.
+                    </div>
+
+
+                    <div class="report-controls">
+
+                        <a
+                            class="report-button"
+                            href="/api/export/csv"
+                        >
+                            Export All CSV
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+            </div>
+
+        </section>
 
         <!-- ==============================
              LINK PERFORMANCE
@@ -7941,10 +8505,6 @@ function escapeHtml(
             ).value = "";
 
             document.getElementById(
-                "linkManagerIcon"
-            ).value = "↗";
-
-            document.getElementById(
                 "linkManagerDescription"
             ).value = "";
 
@@ -7993,10 +8553,6 @@ function escapeHtml(
             document.getElementById(
                 "linkManagerUrl"
             ).value = link.url || "";
-
-            document.getElementById(
-                "linkManagerIcon"
-            ).value = link.icon || "↗";
 
             document.getElementById(
                 "linkManagerDescription"
@@ -8062,11 +8618,6 @@ function escapeHtml(
                 url:
                     document.getElementById(
                         "linkManagerUrl"
-                    ).value.trim(),
-
-                icon:
-                    document.getElementById(
-                        "linkManagerIcon"
                     ).value.trim(),
 
                 description:
@@ -8191,7 +8742,6 @@ function escapeHtml(
                 {
                     name: link.name,
                     url: link.url,
-                    icon: link.icon,
                     description:
                         link.description || "",
                     enabled:
@@ -8223,7 +8773,6 @@ function escapeHtml(
                 {
                     name: link.name,
                     url: link.url,
-                    icon: link.icon,
                     description:
                         link.description || "",
                     enabled:
@@ -9396,7 +9945,450 @@ function escapeHtml(
 
         loadPhase7();
 
+        // ========================================
+        // PHASE 8 — REPORTS
+        // ========================================
 
+
+        function getReportDateRange() {
+
+            return getTimeRange()
+
+        }
+
+
+        // ========================================
+        // ANALYTICS SUMMARY
+        // ========================================
+
+
+        async function loadReportSummary() {
+
+            const range =
+                getReportDateRange();
+
+
+            if (
+                !range ||
+                !range.start ||
+                !range.end
+            ) {
+
+                alert(
+                    "Please select an analytics period first."
+                );
+
+                return;
+
+            }
+
+
+            const button =
+                document.getElementById(
+                    "loadReportSummaryButton"
+                );
+
+
+            const status =
+                document.getElementById(
+                    "reportSummaryStatus"
+                );
+
+
+            button.disabled = true;
+
+            button.textContent =
+                "Loading...";
+
+
+            status.textContent =
+                "Generating analytics summary...";
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        `/api/reports/summary?start=${encodeURIComponent(
+                            range.start
+                        )}&end=${encodeURIComponent(
+                            range.end
+                        )}`
+                    );
+
+
+                if (
+                    response.status === 401
+                ) {
+
+                    window.location.href =
+                        "/admin/login";
+
+                    return;
+
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                if (
+                    !response.ok ||
+                    !data.success
+                ) {
+
+                    throw new Error(
+                        data.message ||
+                        "Unable to generate summary."
+                    );
+
+                }
+
+
+                const summary =
+                    data.summary;
+
+
+                document.getElementById(
+                    "reportTotalEvents"
+                ).textContent =
+                    summary.total_events ?? 0;
+
+
+                document.getElementById(
+                    "reportTotalVisits"
+                ).textContent =
+                    summary.total_visits ?? 0;
+
+
+                document.getElementById(
+                    "reportTotalClicks"
+                ).textContent =
+                    summary.total_clicks ?? 0;
+
+
+                document.getElementById(
+                    "reportUniqueVisitors"
+                ).textContent =
+                    summary.unique_visitors ?? 0;
+
+
+                document.getElementById(
+                    "reportRepeatVisitors"
+                ).textContent =
+                    summary.repeat_visitors ?? 0;
+
+
+                document.getElementById(
+                    "reportClickRate"
+                ).textContent =
+                    `${Number(
+                        summary.click_rate || 0
+                    ).toFixed(2)}%`;
+
+
+                status.textContent =
+                    `Report generated for ${
+                        range.start
+                    } → ${
+                        range.end
+                    }.`;
+
+            } catch (error) {
+
+                console.error(
+                    "Report summary error:",
+                    error
+                );
+
+
+                status.textContent =
+                    error.message ||
+                    "Unable to generate summary.";
+
+            } finally {
+
+                button.disabled = false;
+
+                button.textContent =
+                    "Generate Summary";
+
+            }
+
+        }
+
+
+        // ========================================
+        // FILTERED CSV
+        // ========================================
+
+
+        function updateFilteredCsvLink() {
+
+            const range =
+                getReportDateRange();
+
+
+            const button =
+                document.getElementById(
+                    "exportFilteredCsvButton"
+                );
+
+
+            if (
+                !range ||
+                !range.start ||
+                !range.end
+            ) {
+
+                button.href =
+                    "#";
+
+                return;
+
+            }
+
+
+            button.href =
+                `/api/export/csv/filtered?start=${encodeURIComponent(
+                    range.start
+                )}&end=${encodeURIComponent(
+                    range.end
+                )}`;
+
+        }
+
+
+        // ========================================
+        // MONTHLY REPORT
+        // ========================================
+
+
+        async function loadMonthlyReport() {
+
+            const monthInput =
+                document.getElementById(
+                    "reportMonth"
+                );
+
+
+            const month =
+                monthInput.value;
+
+
+            if (!month) {
+
+                alert(
+                    "Please select a month."
+                );
+
+                return;
+
+            }
+
+
+            const button =
+                document.getElementById(
+                    "loadMonthlyReportButton"
+                );
+
+
+            const status =
+                document.getElementById(
+                    "monthlyReportStatus"
+                );
+
+
+            button.disabled = true;
+
+            button.textContent =
+                "Loading...";
+
+
+            status.textContent =
+                "Generating monthly report...";
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        `/api/reports/monthly?month=${encodeURIComponent(
+                            month
+                        )}`
+                    );
+
+
+                if (
+                    response.status === 401
+                ) {
+
+                    window.location.href =
+                        "/admin/login";
+
+                    return;
+
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                if (
+                    !response.ok ||
+                    !data.success
+                ) {
+
+                    throw new Error(
+                        data.message ||
+                        "Unable to generate monthly report."
+                    );
+
+                }
+
+
+                const summary =
+                    data.summary;
+
+
+                document.getElementById(
+                    "monthlyTotalEvents"
+                ).textContent =
+                    summary.total_events ?? 0;
+
+
+                document.getElementById(
+                    "monthlyTotalVisits"
+                ).textContent =
+                    summary.total_visits ?? 0;
+
+
+                document.getElementById(
+                    "monthlyTotalClicks"
+                ).textContent =
+                    summary.total_clicks ?? 0;
+
+
+                document.getElementById(
+                    "monthlyUniqueVisitors"
+                ).textContent =
+                    summary.unique_visitors ?? 0;
+
+
+                document.getElementById(
+                    "monthlyTopLink"
+                ).textContent =
+                    summary.top_link?.name ||
+                    "No clicks";
+
+
+                document.getElementById(
+                    "monthlyClickRate"
+                ).textContent =
+                    `${Number(
+                        summary.click_rate || 0
+                    ).toFixed(2)}%`;
+
+
+                document.getElementById(
+                    "downloadMonthlyPdfButton"
+                ).href =
+                    `/api/reports/monthly/pdf?month=${encodeURIComponent(
+                        month
+                    )}`;
+
+
+                status.textContent =
+                    `Monthly report generated for ${month}.`;
+
+            } catch (error) {
+
+                console.error(
+                    "Monthly report error:",
+                    error
+                );
+
+
+                status.textContent =
+                    error.message ||
+                    "Unable to generate monthly report.";
+
+            } finally {
+
+                button.disabled = false;
+
+                button.textContent =
+                    "Generate";
+
+            }
+
+        }
+
+
+        // ========================================
+        // REPORT EVENT LISTENERS
+        // ========================================
+
+
+        document.getElementById(
+            "loadReportSummaryButton"
+        ).addEventListener(
+            "click",
+            loadReportSummary
+        );
+
+
+        document.getElementById(
+            "loadMonthlyReportButton"
+        ).addEventListener(
+            "click",
+            loadMonthlyReport
+        );
+
+
+        // ========================================
+        // REPORT MONTH DEFAULT
+        // ========================================
+
+
+        const reportMonthInput =
+            document.getElementById(
+                "reportMonth"
+            );
+
+
+        if (reportMonthInput) {
+
+            const now =
+                new Date();
+
+
+            reportMonthInput.value =
+                `${now.getFullYear()}-${
+                    String(
+                        now.getMonth() + 1
+                    ).padStart(2, "0")
+                }`;
+
+        }
+
+
+        // ========================================
+        // FILTERED CSV UPDATE
+        // ========================================
+
+
+        document.getElementById(
+            "timeRange"
+        ).addEventListener(
+            "change",
+            updateFilteredCsvLink
+        );
+
+
+        updateFilteredCsvLink();
         // ========================================
         // INITIAL LOAD
         // ========================================
