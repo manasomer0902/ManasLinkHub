@@ -867,12 +867,22 @@ def profile_image():
 
     return send_from_directory(PROJECT_DIR, "profile.png")
 
-@app.route("/favicon.ico", methods=["GET"])
-def favicon():
+@app.route("/favicon.png", methods=["GET"])
+def favicon_png():
 
     return send_from_directory(
         PROJECT_DIR,
-        "profile.png",
+        "favicon.png",
+        mimetype="image/png"
+    )
+
+
+@app.route("/favicon.ico", methods=["GET"])
+def favicon_ico():
+
+    return send_from_directory(
+        PROJECT_DIR,
+        "favicon.png",
         mimetype="image/png"
     )
 
